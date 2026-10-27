@@ -2,33 +2,47 @@
 (function (root) {
   'use strict';
 
-  // Grid longgar: kartu duduk di sel grid, lalu digoyang sedikit dari titik selnya.
+  // ---------- Konstanta ----------
+
   const GAP = 12;
   const ROW_UNIT = 60;
   const MIN_COL_W = 300;
-  const PAD = 28; // padding kartu per sisi, px. Teks berada di dalam area ini.
-  const EXT = 2; // kartu melebar 2px ke tiap sisi, jadi tetangga boleh bertumpuk di area padding
-  const JITTER = 2; // geser acak maksimal per sumbu, px
-  const MIRING = 2; // kemiringan maksimal, derajat
+  // Bantalan teks per sisi, dalam px kanvas. Kotak teks = kertas dikurangi PAD di tiap sisi.
+  const PAD = 40;
+  // Kertas melebar EXT ke tiap sisi selnya.
+  const EXT = 2;
+  // Selotip menjulur TAPE_OUT di luar kertas (sudut selotip yang diputar, bukan lebar kotaknya). Dihitung sebagai bagian kertas.
+  const TAPE_OUT = 20;
+  // Geseran maksimal dari titik sel, sebagai fraksi lebar sel (x) dan tinggi sel (y).
+  const GESER = 0.4;
+  // Kemiringan dalam derajat. Kartu kecil dapat MIRING_MAX, kartu penuh mendekati MIRING_MIN.
+  const MIRING_MIN = 3;
+  const MIRING_MAX = 7;
+  const SEL_PENUH = 8;
+  // Tumpang tindih dua kertas dibatasi sebagai fraksi luas kertas yang lebih kecil.
+  const TUMPANG_MAKS = 0.12;
+  // Tepi kanvas yang dibiarkan kosong, supaya kertas dan selotip tidak pernah keluar layar.
+  const EDGE = EXT + TAPE_OUT;
   const LINE_H = 35; // 24px * 1.45, dibulatkan ke atas
   const NAME_H = 35; // baris nama 17px ditambah jarak
   const CHAR_W = 13.5; // lebar karakter rata-rata 24px, dibuat konservatif
   const MAX_PER_PAGE = 14;
-  const DETOUR_MS = 6000; // lama satu selingan pesan baru
-  const DETOUR_GAP_MS = 90000; // jarak minimal antar selingan
+  const DETOUR_MS = 6000;
+  const DETOUR_GAP_MS = 90000;
   const ROTASI_BAWAAN_MS = 15000;
 
-  // Kanvas logis tetap. Pembagian halaman dihitung dari kanvas ini saja, jadi semua layar
-  // yang membuka /wall dengan daftar pesan yang sama memakai pembagian yang sama.
-  // Layar hanya memperbesar atau memperkecil kanvas (lihat skalaKanvas).
+  // Kanvas logis tetap. Pembagian halaman bergantung pada kanvas ini dan pada daftar pesan.
   const DESIGN_W = 1856;
-  const DESIGN_H = 760;
+  const DESIGN_H = 900;
+  const MARGIN_LAYAR = 24;
 
   const POSISI_QR = ['kanan-bawah', 'kanan-atas', 'kiri-atas', 'kiri-bawah', 'sembunyikan'];
   const BAWAAN_WALL = { qr: 'kanan-bawah', qrUkuran: 160, refresh: 5, rotasi: 15 };
   const RENTANG_WALL = { qrUkuran: [120, 400], refresh: [3, 30], rotasi: [8, 60] };
   const RENTANG_ADMIN = [5, 60];
   const BAWAAN_ADMIN_REFRESH = 10;
+
+  // ---------- Acak deterministik ----------
 
   // Nilai acak deterministik dari id pesan. Tidak memakai generator acak apa pun.
   function seed(id, salt) {
@@ -41,6 +55,8 @@
     return (h >>> 0) / 4294967296;
   }
 
+  // ---------- Grid dan ukuran ----------
+
   function jumlahKolom(lebar) {
     return Math.max(1, Math.floor((lebar + GAP) / (MIN_COL_W + GAP)));
   }
@@ -49,7 +65,7 @@
     return Math.max(1, Math.floor((tinggi + GAP) / (ROW_UNIT + GAP)));
   }
 
-  // Ukuran kartu dari panjang pesan (data asli), bukan dari angka acak.
+  // Ukuran kartu dari panjang pesan (data asli). Kertas = sel (cs x rs) + EXT di tiap sisi.
   function kebutuhan(panjang, cs, cellW) {
     const lebar = cs * cellW + (cs - 1) * GAP + 2 * EXT;
     const perBaris = Math.max(8, Math.floor((lebar - 2 * PAD) / CHAR_W));
@@ -59,28 +75,7 @@
     return { cs, rs };
   }
 
-  function cariSlot(panjang, occ, C, R, cellW, paksa) {
-    const pref = panjang > 200 && C >= 3 ? 2 : 1;
-    const urutan = [pref];
-    for (let cs = 1; cs <= C; cs += 1) if (cs !== pref) urutan.push(cs);
-    for (const cs0 of urutan) {
-      const { rs } = kebutuhan(panjang, cs0, cellW);
-      if (rs > R) continue;
-      for (let r = 0; r + rs <= R; r += 1) {
-        for (let c = 0; c + cs0 <= C; c += 1) {
-          if (kosong(occ, r, c, rs, cs0)) return { col: c, row: r, cs: cs0, rs };
-        }
-      }
-    }
-    if (paksa) {
-      // Papan terlalu kecil untuk pesan ini walau sendirian. Tampilkan di sudut,
-      // dan jangan dianggap sebagai layout normal.
-      return { col: 0, row: 0, cs: C, rs: R, terpaksa: true };
-    }
-    return null;
-  }
-
-  function kosong(occ, r, c, rs, cs) {
+  function kosongSel(occ, r, c, rs, cs) {
     for (let i = r; i < r + rs; i += 1) {
       for (let j = c; j < c + cs; j += 1) if (occ[i][j]) return false;
     }
@@ -93,8 +88,27 @@
     }
   }
 
-  // Sel kosong yang tersisa di sekitar kartu diisi dengan memanjangkan kartu ke bawah lalu ke kanan.
-  // Kartu yang memanjang hanya menjadi lebih lapang, jadi teks tetap muat.
+  function cariSlot(panjang, occ, C, R, cellW, paksa) {
+    const pref = panjang > 200 && C >= 3 ? 2 : 1;
+    const urutan = [pref];
+    for (let cs = 1; cs <= C; cs += 1) if (cs !== pref) urutan.push(cs);
+    for (const cs0 of urutan) {
+      const { rs } = kebutuhan(panjang, cs0, cellW);
+      if (rs > R) continue;
+      for (let r = 0; r + rs <= R; r += 1) {
+        for (let c = 0; c + cs0 <= C; c += 1) {
+          if (kosongSel(occ, r, c, rs, cs0)) return { col: c, row: r, cs: cs0, rs };
+        }
+      }
+    }
+    if (paksa) {
+      // Kanvas terlalu kecil untuk pesan ini walau sendirian. Dipaksa di sudut dan ditandai.
+      return { col: 0, row: 0, cs: C, rs: R, terpaksa: true };
+    }
+    return null;
+  }
+
+  // Sel kosong di sekitar kartu diisi dengan memanjangkan kartu ke bawah lalu ke kanan.
   function isiLubang(page, occ, C, R) {
     const bebas = (r0, c0, rs, cs) => {
       if (r0 + rs > R || c0 + cs > C) return false;
@@ -126,18 +140,216 @@
     }
   }
 
-  // Membagi pesan (urut, terbaru dulu) menjadi halaman di atas kanvas logis. Hasilnya hanya
-  // bergantung pada daftar pesan. Tiap halaman diisi sampai kanvas penuh atau MAX_PER_PAGE.
-  // Sel kosong yang tersisa diisi pesan berikutnya yang muat.
-  function paginasLayout(messages) {
-    const C = jumlahKolom(DESIGN_W);
-    const R = jumlahBaris(DESIGN_H);
-    const cellW = (DESIGN_W - (C - 1) * GAP) / C;
+  // ---------- Geometri: kertas, kotak teks, tabrakan ----------
+  //
+  // Jaminan teks tidak tertutup. Untuk dua kartu A dan B, kotak teks A (kertas A dikurangi PAD)
+  // tidak boleh bersinggungan dengan kertas B (diperbesar TAPE_OUT). Ini diperiksa dengan geometri
+  // penuh, termasuk kemiringan dan geseran, bukan dengan rumus perkiraan. Kalau ada pelanggaran,
+  // geseran dan kemiringan kartu yang menabrak dipangkas setengah, berulang sampai nol.
+  // Rumus kasar untuk anggaran bantalan: geseran kedua kertas plus tambahan tinggi akibat kemiringan,
+  // ((w/2) sin θ + (h/2) sin θ), harus lebih kecil dari PAD + GAP. Pemeriksaan geometri di sini
+  // menangkap kasus yang tidak tertangkap rumus itu.
+
+  function sudutRad(d) {
+    return (d * Math.PI) / 180;
+  }
+
+  // Empat sudut kotak berpusat (cx, cy), setengah lebar hw, setengah tinggi hh, diputar theta derajat.
+  function sudutKotak(cx, cy, hw, hh, theta) {
+    const c = Math.cos(sudutRad(theta));
+    const s = Math.sin(sudutRad(theta));
+    return [[-hw, -hh], [hw, -hh], [hw, hh], [-hw, hh]].map(([x, y]) => [cx + x * c - y * s, cy + x * s + y * c]);
+  }
+
+  function proyeksi(poli, nx, ny) {
+    let mn = Infinity;
+    let mx = -Infinity;
+    for (const [x, y] of poli) {
+      const d = x * nx + y * ny;
+      if (d < mn) mn = d;
+      if (d > mx) mx = d;
+    }
+    return [mn, mx];
+  }
+
+  // Pemisahan sumbu (SAT) untuk dua poligon cembung. Sentuhan dihitung sebagai tabrakan.
+  function bertabrakan(a, b) {
+    for (const poli of [a, b]) {
+      for (let i = 0; i < 4; i += 1) {
+        const [x1, y1] = poli[i];
+        const [x2, y2] = poli[(i + 1) % 4];
+        const nx = y2 - y1;
+        const ny = x1 - x2;
+        const [a0, a1] = proyeksi(a, nx, ny);
+        const [b0, b1] = proyeksi(b, nx, ny);
+        if (a1 < b0 || b1 < a0) return false;
+      }
+    }
+    return true;
+  }
+
+  function luasPoli(p) {
+    let s = 0;
+    for (let i = 0; i < p.length; i += 1) {
+      const [x1, y1] = p[i];
+      const [x2, y2] = p[(i + 1) % p.length];
+      s += x1 * y2 - x2 * y1;
+    }
+    return Math.abs(s) / 2;
+  }
+
+  // Potong poligon `subj` dengan satu sisi p1-p2, ambil sisi dalam. Kedua poligon berorientasi sama.
+  function potong(subj, p1, p2) {
+    const dalam = (p) => (p2[0] - p1[0]) * (p[1] - p1[1]) - (p2[1] - p1[1]) * (p[0] - p1[0]) >= 0;
+    const potongGaris = (s, e) => {
+      const [x1, y1] = s;
+      const [x2, y2] = e;
+      const [x3, y3] = p1;
+      const [x4, y4] = p2;
+      const den = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+      const t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / den;
+      return [x1 + t * (x2 - x1), y1 + t * (y2 - y1)];
+    };
+    const out = [];
+    for (let i = 0; i < subj.length; i += 1) {
+      const cur = subj[i];
+      const prev = subj[(i + subj.length - 1) % subj.length];
+      if (dalam(cur)) {
+        if (!dalam(prev)) out.push(potongGaris(prev, cur));
+        out.push(cur);
+      } else if (dalam(prev)) {
+        out.push(potongGaris(prev, cur));
+      }
+    }
+    return out;
+  }
+
+  // Luas irisan dua poligon cembung (Sutherland-Hodgman).
+  function luasTumpang(a, b) {
+    let subj = a;
+    for (let i = 0; i < 4; i += 1) {
+      subj = potong(subj, b[i], b[(i + 1) % 4]);
+      if (subj.length === 0) return 0;
+    }
+    return luasPoli(subj);
+  }
+
+  function dimensiSel(pl, cellW) {
+    return {
+      x: EDGE + pl.col * (cellW + GAP),
+      y: EDGE + pl.row * (ROW_UNIT + GAP),
+      w: pl.cs * cellW + (pl.cs - 1) * GAP,
+      h: pl.rs * ROW_UNIT + (pl.rs - 1) * GAP,
+    };
+  }
+
+  // Geometri final satu kartu: kertas dengan selotip, kertas tanpa selotip, dan kotak teks.
+  function geometriKartu(pl, cellW) {
+    const d = dimensiSel(pl, cellW);
+    const cx = d.x + d.w / 2 + pl.dx;
+    const cy = d.y + d.h / 2 + pl.dy;
+    const hw = d.w / 2 + EXT;
+    const hh = d.h / 2 + EXT;
+    const luas = sudutKotak(cx, cy, hw, hh, pl.rot);
+    return {
+      kertas: sudutKotak(cx, cy, hw + TAPE_OUT, hh + TAPE_OUT, pl.rot),
+      luas,
+      teks: sudutKotak(cx, cy, hw - PAD, hh - PAD, pl.rot),
+      luasKertas: luasPoli(luas),
+    };
+  }
+
+  // Geseran dan kemiringan dari seed, dikalikan faktor k (1, 1/2, 1/4, ... 0).
+  function terapkanGeser(pl, cellW) {
+    pl.dx = pl.fx * GESER * cellW * pl.k;
+    pl.dy = pl.fy * GESER * ROW_UNIT * pl.k;
+    pl.rot = pl.fr * pl.miringMaks * pl.k;
+  }
+
+  // Kertas, termasuk selotip, tidak boleh keluar dari kanvas. Kanvas adalah area yang terlihat.
+  function keluarKanvas(poli) {
+    const e = 1e-6;
+    return poli.some(([x, y]) => x < -e || y < -e || x > DESIGN_W + e || y > DESIGN_H + e);
+  }
+
+  // Pelanggaran pertama dalam urutan halaman. Kembalikan pasangan (i, j), atau null kalau bersih.
+  // Pasangan (i, i) berarti kartu i keluar dari kanvas sendirian.
+  function cariPelanggaran(page, cellW, blokir) {
+    const geo = page.map((pl) => geometriKartu(pl, cellW));
+    const kotak = (b) => sudutKotak(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, 0);
+    for (let i = 0; i < page.length; i += 1) {
+      if (keluarKanvas(geo[i].kertas)) return [i, i];
+      // Kertas tidak boleh masuk kotak QR atau indikator (yang sudah diberi margin).
+      for (const b of blokir || []) {
+        if (bertabrakan(geo[i].kertas, kotak(b))) return [i, i];
+      }
+    }
+    for (let i = 0; i < page.length; i += 1) {
+      for (let j = 0; j < page.length; j += 1) {
+        if (i === j) continue;
+        if (bertabrakan(geo[i].teks, geo[j].kertas)) return [i, j];
+        const kecil = Math.min(geo[i].luasKertas, geo[j].luasKertas);
+        if (luasTumpang(geo[i].luas, geo[j].luas) > TUMPANG_MAKS * kecil) return [i, j];
+      }
+    }
+    return null;
+  }
+
+  function selesaikanTabrakan(page, cellW, blokir) {
+    for (const pl of page) {
+      pl.k = 1;
+      terapkanGeser(pl, cellW);
+    }
+    for (let iter = 0; iter < 1000; iter += 1) {
+      const pair = cariPelanggaran(page, cellW, blokir);
+      if (!pair) return true;
+      // Pangkas kartu dari pasangan yang geserannya masih lebih dari nol, yang terbesar lebih dulu.
+      // Kalau keduanya sudah nol, tidak ada lagi yang bisa dipangkas.
+      const kandidat = [...new Set(pair)].map((idx) => page[idx]).filter((pl) => pl.k > 0);
+      if (kandidat.length === 0) return false;
+      const pl = kandidat.reduce((a, b) => (b.k > a.k ? b : a));
+      pl.k = pl.k >= 1 / 64 ? pl.k / 2 : 0;
+      terapkanGeser(pl, cellW);
+    }
+    return false;
+  }
+
+  // ---------- Pembagian halaman ----------
+
+  // `blokir` berisi kotak {x, y, w, h} dalam koordinat kanvas, misalnya tempat QR dan indikator
+  // halaman. Sel yang tersentuh kotak itu ditandai terpakai sebelum pengepakan dimulai.
+  // Ukuran grid kanvas logis. Dipakai pembagian halaman, geometri, dan tes.
+  function kisiGrid() {
+    const C = jumlahKolom(DESIGN_W - 2 * EDGE);
+    const R = jumlahBaris(DESIGN_H - 2 * EDGE);
+    const cellW = (DESIGN_W - 2 * EDGE - (C - 1) * GAP) / C;
+    return { C, R, cellW };
+  }
+
+  function paginasLayout(messages, blokir) {
+    const { C, R, cellW } = kisiGrid();
     const sisa = messages.slice();
     const pages = [];
+    const occAwal = () => {
+      const occ = Array.from({ length: R }, () => new Array(C).fill(false));
+      // Kotak terblokir diperbesar EDGE: kertas yang tepat di sel tetangga tetap butuh ruang itu.
+      for (const b0 of blokir || []) {
+        const b = { x: b0.x - EDGE, y: b0.y - EDGE, w: b0.w + 2 * EDGE, h: b0.h + 2 * EDGE };
+        for (let r = 0; r < R; r += 1) {
+          const y0 = EDGE + r * (ROW_UNIT + GAP);
+          if (y0 >= b.y + b.h || y0 + ROW_UNIT <= b.y) continue;
+          for (let c = 0; c < C; c += 1) {
+            const x0 = EDGE + c * (cellW + GAP);
+            if (x0 >= b.x + b.w || x0 + cellW <= b.x) continue;
+            occ[r][c] = true;
+          }
+        }
+      }
+      return occ;
+    };
 
     while (sisa.length > 0) {
-      const occ = Array.from({ length: R }, () => new Array(C).fill(false));
+      const occ = occAwal();
       const page = [];
       let i = 0;
       while (i < sisa.length && page.length < MAX_PER_PAGE) {
@@ -155,14 +367,25 @@
           cs: slot.cs,
           rs: slot.rs,
           terpaksa: Boolean(slot.terpaksa),
-          dx: (seed(m.id, 1) * 2 - 1) * JITTER,
-          dy: (seed(m.id, 2) * 2 - 1) * JITTER,
-          rot: (seed(m.id, 3) * 2 - 1) * MIRING,
+          fx: 2 * seed(m.id, 1) - 1,
+          fy: 2 * seed(m.id, 2) - 1,
+          fr: 2 * seed(m.id, 3) - 1,
+          miringMaks: 0,
+          k: 1,
+          dx: 0,
+          dy: 0,
+          rot: 0,
           z: 1 + Math.floor(seed(m.id, 4) * 6),
         });
         sisa.splice(i, 1);
       }
       isiLubang(page, occ, C, R);
+      for (const pl of page) {
+        // Kartu besar lebih lurus, kartu kecil mendekati MIRING_MAX.
+        const t = Math.min(1, (pl.cs * pl.rs) / SEL_PENUH);
+        pl.miringMaks = MIRING_MAX - (MIRING_MAX - MIRING_MIN) * t;
+      }
+      selesaikanTabrakan(page, cellW, blokir);
       pages.push(page);
     }
     return pages;
@@ -171,6 +394,8 @@
   function jumlahHalaman(pages) {
     return Math.max(1, pages.length);
   }
+
+  // ---------- Rotasi, selingan, dan skala ----------
 
   // Rotasi berbasis langkah jam dari titik dasar. Perubahan jeda memakai gantiJeda(),
   // sehingga halaman yang sedang tampil tetap sama dan tidak kembali ke halaman 1.
@@ -193,18 +418,15 @@
     return halamanRotasi(now, jumlah, rot);
   }
 
-  // Penjadwal selingan. Paling banyak satu selingan per DETOUR_GAP_MS. Pesan baru yang datang
-  // saat masa jeda tidak memicu apa-apa; mereka menunggu di antrean dan ditampilkan sekaligus
-  // dalam satu selingan ketika jeda berakhir. `terbaru` adalah id pesan paling baru di antrean.
+  // Penjadwal selingan. Paling banyak satu per DETOUR_GAP_MS. Pesan baru yang datang saat masa
+  // jeda tidak memicu apa-apa; mereka menunggu di antrean dan tampil sekaligus saat jeda berakhir.
   function jadwalSelingan(sel, now, antrean, terbaru) {
     if (antrean.length === 0 || terbaru === null) return { sel, mulai: false };
     if (sel.terakhir !== null && now - sel.terakhir < DETOUR_GAP_MS) return { sel, mulai: false };
     return { sel: { terakhir: now }, mulai: true };
   }
 
-  // Skala kanvas agar muat di area papan dengan margin di tiap sisi. Kartu yang diputar bisa
-  // melebar sekitar 14px di tepinya, jadi margin 24px menjaga semua kartu tetap di dalam layar.
-  const MARGIN_LAYAR = 24;
+  // Skala kanvas agar muat di area papan, dengan margin di tiap sisi. Skala TIDAK bergantung pada QR.
   function skalaKanvas(lebarArea, tinggiArea) {
     const lebar = lebarArea - 2 * MARGIN_LAYAR;
     const tinggi = tinggiArea - 2 * MARGIN_LAYAR;
@@ -220,6 +442,8 @@
   function checksum(list) {
     return `${list.length}:${list.reduce((s, m) => s + m.id, 0)}`;
   }
+
+  // ---------- Pengaturan ----------
 
   function angka(nilai, [lo, hi], bawaan) {
     if (nilai === undefined || nilai === null || String(nilai).trim() === '') return bawaan;
@@ -253,19 +477,21 @@
   const api = {
     GAP,
     ROW_UNIT,
-    DESIGN_W,
-    DESIGN_H,
-    DETOUR_GAP_MS,
-    jadwalSelingan,
-    skalaKanvas,
-    MARGIN_LAYAR,
     PAD,
     EXT,
-    JITTER,
-    MIRING,
+    EDGE,
+    TAPE_OUT,
+    GESER,
+    MIRING_MIN,
+    MIRING_MAX,
+    TUMPANG_MAKS,
     MAX_PER_PAGE,
     DETOUR_MS,
+    DETOUR_GAP_MS,
     ROTASI_BAWAAN_MS,
+    DESIGN_W,
+    DESIGN_H,
+    MARGIN_LAYAR,
     POSISI_QR,
     BAWAAN_WALL,
     RENTANG_WALL,
@@ -274,12 +500,19 @@
     seed,
     jumlahKolom,
     jumlahBaris,
+    kisiGrid,
     paginasLayout,
+    selesaikanTabrakan,
+    geometriKartu,
+    bertabrakan,
+    luasTumpang,
     jumlahHalaman,
     rotasiAwal,
     halamanRotasi,
     gantiJeda,
     halamanTampil,
+    jadwalSelingan,
+    skalaKanvas,
     checksum,
     angka,
     pengaturanWall,

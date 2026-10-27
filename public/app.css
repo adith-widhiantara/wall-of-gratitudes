@@ -233,60 +233,34 @@ textarea {
 
 /* ---------- Wall (proyektor 1920x1080) ---------- */
 
-/* Posisi QR diatur lewat kelas di <body>. Area papan menyusut mengikuti QR, jadi kartu tidak pernah tertimpa QR. */
+/* Header tipis di atas, papan memakai sisa layar. QR dan indikator halaman menumpang di atas papan. */
 .halaman-wall {
   height: 100vh;
   margin: 0;
   display: grid;
-  grid-template-rows: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto minmax(0, 1fr);
   overflow: hidden;
   background: var(--latar-wall);
   color: var(--kertas);
 }
 
-.qr-kanan-bawah {
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "kepala kepala" "papan papan" "kaki qr";
-}
-
-.qr-kanan-atas {
-  grid-template-columns: 1fr auto;
-  grid-template-areas: "kepala kepala" "papan qr" "kaki kaki";
-}
-
-.qr-kiri-atas {
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "kepala kepala" "qr papan" "kaki kaki";
-}
-
-.qr-kiri-bawah {
-  grid-template-columns: auto 1fr;
-  grid-template-areas: "kepala kepala" "papan papan" "qr kaki";
-}
-
-.qr-sembunyikan {
-  grid-template-columns: 1fr;
-  grid-template-areas: "kepala" "papan" "kaki";
-}
-
 .kepala {
-  grid-area: kepala;
   display: flex;
   align-items: center;
-  gap: 24px;
-  padding: 16px 32px;
+  gap: 20px;
+  padding: 8px 24px;
   border-bottom: 1px solid rgba(246, 241, 232, 0.12);
 }
 
 .kepala h1 {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   margin: 0;
   font-weight: 700;
 }
 
 .jumlah {
   margin: 0;
-  font-size: 1.125rem;
+  font-size: 1rem;
   opacity: 0.8;
 }
 
@@ -309,7 +283,6 @@ textarea {
 }
 
 .area-papan {
-  grid-area: papan;
   position: relative;
   min-width: 0;
   min-height: 0;
@@ -331,14 +304,15 @@ textarea {
   opacity: 0;
 }
 
-/* Kartu melebar 2px ke tiap sisi (EXT di wall-logika.js). Padding 28px menjaga teks tetap di dalam. */
+/* Kertas melebar 2px ke tiap sisi sel. Padding 40px (PAD di wall-logika.js) adalah kotak teks yang dilindungi. */
 .kartu {
   margin: -2px;
-  padding: 28px;
+  padding: 40px;
   color: var(--teks);
   border-radius: 2px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
   overflow: visible;
+  position: relative;
 }
 
 .kartu.warna-kuning { background: var(--kuning); }
@@ -347,6 +321,19 @@ textarea {
 .kartu.warna-peach { background: var(--peach); }
 .kartu.warna-mawar { background: var(--mawar); }
 .kartu.warna-lavender { background: var(--lavender); }
+
+/* Selotip kertas di sudut kiri atas. Solid, tanpa gradient, dan berada di luar kotak teks. */
+.selotip {
+  position: absolute;
+  left: 14px;
+  top: -3px;
+  width: 56px;
+  height: 18px;
+  background: #f3eedf;
+  opacity: 0.9;
+  transform: rotate(-38deg);
+  pointer-events: none;
+}
 
 .kartu .pesan {
   font-size: 1.5rem;
@@ -394,16 +381,31 @@ textarea {
   padding: 0 32px;
 }
 
+/* QR menumpang di pojok yang dipilih. Sel di bawahnya sudah diblokir di wall-logika.js. */
 .qr-wrap {
-  grid-area: qr;
-  align-self: end;
-  padding: 12px 24px;
+  position: absolute;
+  z-index: 60;
+  right: 0;
+  bottom: 0;
+  margin: 16px;
   line-height: 0;
 }
 
-.qr-kanan-atas .qr-wrap,
+.qr-kanan-atas .qr-wrap {
+  top: 0;
+  bottom: auto;
+}
+
 .qr-kiri-atas .qr-wrap {
-  align-self: start;
+  left: 0;
+  right: auto;
+  top: 0;
+  bottom: auto;
+}
+
+.qr-kiri-bawah .qr-wrap {
+  left: 0;
+  right: auto;
 }
 
 .qr-wrap img {
@@ -417,17 +419,22 @@ textarea {
   display: none;
 }
 
-.kaki {
-  grid-area: kaki;
-  display: flex;
-  align-items: flex-end;
-  padding: 12px 24px 16px;
-}
-
+/* Indikator halaman di pojok berlawanan dengan QR, di atas papan. */
 .halaman {
+  position: absolute;
+  z-index: 60;
+  left: 16px;
+  bottom: 16px;
+  min-width: 170px;
   margin: 0;
   font-size: 1rem;
-  opacity: 0.7;
+  opacity: 0.8;
+}
+
+.qr-kiri-bawah .halaman {
+  left: auto;
+  right: 16px;
+  text-align: right;
 }
 
 .halaman-wall.sembunyi-kursor,

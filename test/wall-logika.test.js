@@ -68,11 +68,13 @@ test('isi halaman bervariasi dan dibatasi MAX_PER_PAGE', () => {
   assert.ok(sizes.size > 1, 'jumlah kartu per halaman seharusnya bervariasi');
 });
 
-test('kartu di dalam kanvas: jitter dan kemiringan dalam batas JITTER dan MIRING', () => {
-  for (const pg of L.paginasLayout(daftar(60))) {
+test('geseran dan kemiringan dalam batas GESER dan MIRING_MAX', () => {
+  const { cellW } = L.kisiGrid();
+  for (const pg of L.paginasLayout(daftar(60), [])) {
     for (const pl of pg) {
-      assert.ok(Math.abs(pl.dx) <= L.JITTER && Math.abs(pl.dy) <= L.JITTER);
-      assert.ok(Math.abs(pl.rot) <= L.MIRING);
+      assert.ok(Math.abs(pl.dx) <= L.GESER * cellW + 1e-9);
+      assert.ok(Math.abs(pl.dy) <= L.GESER * L.ROW_UNIT + 1e-9);
+      assert.ok(Math.abs(pl.rot) <= L.MIRING_MAX + 1e-9);
     }
   }
 });
@@ -147,4 +149,49 @@ test('pengaturan admin: angka 5 sampai 60 atau mati', () => {
   assert.deepEqual(L.pengaturanAdmin({ refresh: 'mati' }), { refresh: 'mati' });
   assert.deepEqual(L.pengaturanAdmin({ refresh: 90 }), { refresh: 60 });
   assert.deepEqual(L.pengaturanAdmin({}), { refresh: 10 });
+});
+
+test('geometri: tidak ada kotak teks yang bersinggungan dengan kertas lain, dan tumpang tindih di bawah batas', () => {
+  const { cellW } = L.kisiGrid();
+  for (const n of [40, 200]) {
+    for (const pg of L.paginasLayout(daftar(n), [])) {
+      const g = pg.map((pl) => L.geometriKartu(pl, cellW));
+      for (let i = 0; i < pg.length; i += 1) {
+        for (let j = 0; j < pg.length; j += 1) {
+          if (i === j) continue;
+          assert.equal(L.bertabrakan(g[i].teks, g[j].kertas), false, `teks ${pg[i].m.id} menabrak kertas ${pg[j].m.id}`);
+          const kecil = Math.min(g[i].luasKertas, g[j].luasKertas);
+          assert.ok(L.luasTumpang(g[i].luas, g[j].luas) <= L.TUMPANG_MAKS * kecil + 1e-6);
+        }
+      }
+    }
+  }
+});
+
+test('blokir: sel yang tersentuh kotak QR tidak dipakai kartu', () => {
+  const blok = [{ x: 1200, y: 500, w: 656, h: 400 }];
+  const { cellW } = L.kisiGrid();
+  for (const pg of L.paginasLayout(daftar(120), blok)) {
+    for (const pl of pg) {
+      const d = { x: L.EDGE + pl.col * (cellW + L.GAP), y: L.EDGE + pl.row * (L.ROW_UNIT + L.GAP), w: pl.cs * cellW + (pl.cs - 1) * L.GAP, h: pl.rs * L.ROW_UNIT + (pl.rs - 1) * L.GAP };
+      const tumpang = d.x < blok[0].x + blok[0].w && d.x + d.w > blok[0].x && d.y < blok[0].y + blok[0].h && d.y + d.h > blok[0].y;
+      assert.equal(tumpang, false, `kartu ${pl.m.id} masuk area QR`);
+    }
+  }
+});
+
+test('ukuran kartu: minimal tiga ukuran sel yang berbeda, dan kemiringan lebih kecil untuk kartu besar', () => {
+  const pages = L.paginasLayout(daftar(200), []);
+  const ukuran = new Set();
+  let miringBesar = null;
+  let miringKecil = null;
+  for (const pg of pages) {
+    for (const pl of pg) {
+      ukuran.add(`${pl.cs}x${pl.rs}`);
+      if (pl.cs * pl.rs >= 8) miringBesar = pl.miringMaks;
+      if (pl.cs * pl.rs <= 2) miringKecil = pl.miringMaks;
+    }
+  }
+  assert.ok(ukuran.size >= 3, `hanya ${ukuran.size} ukuran`);
+  if (miringBesar !== null && miringKecil !== null) assert.ok(miringKecil > miringBesar);
 });

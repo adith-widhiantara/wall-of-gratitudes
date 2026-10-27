@@ -6,6 +6,7 @@
   const TICK_MS = 1000;
   const FULL_SYNC_EVERY = 12; // jaring pengaman berkala, sekitar 60 detik pada jeda 5 detik
   const IDLE_MS = 3000;
+  const MARGIN_BLOK = 16;
   const FADE_MS = 400;
   const QR_CLASSES = ['qr-kanan-bawah', 'qr-kanan-atas', 'qr-kiri-atas', 'qr-kiri-bawah', 'qr-sembunyikan'];
 
@@ -97,6 +98,10 @@
     const lama = settings;
     settings = baru;
     terapkanQr(settings);
+    if (lama.qr !== settings.qr || lama.qrUkuran !== settings.qrUkuran) {
+      hitungUlang();
+      segarkan();
+    }
     if (lama.rotasi !== settings.rotasi) {
       rot = L.gantiJeda(rot, Date.now(), L.jumlahHalaman(pages), settings.rotasi * 1000);
     }
@@ -153,6 +158,15 @@
     card.style.gridRow = `${pl.row + 1} / span ${pl.rs}`;
     card.style.zIndex = String(pl.z);
     card.style.transform = `translate(${pl.dx.toFixed(2)}px, ${pl.dy.toFixed(2)}px) rotate(${pl.rot.toFixed(2)}deg)`;
+    // Bayangan condong ke arah kemiringan, panjangnya ikut besar kemiringan.
+    const rad = (pl.rot * Math.PI) / 180;
+    const panjang = 6 + 1.5 * Math.abs(pl.rot);
+    card.style.boxShadow = `${(panjang * Math.sin(rad) * 0.6).toFixed(1)}px ${panjang.toFixed(1)}px 14px rgba(0, 0, 0, 0.35)`;
+    // Selotip di satu sudut kiri atas. Dekorasi murni, tidak menyentuh kotak teks.
+    const selotip = document.createElement('span');
+    selotip.className = 'selotip';
+    selotip.setAttribute('aria-hidden', 'true');
+    card.append(selotip);
     const teks = document.createElement('p');
     teks.className = 'pesan';
     teks.textContent = pl.m.message;
@@ -180,8 +194,28 @@
     papan.style.transform = `translate(${x}px, ${y}px) scale(${s})`;
   }
 
+  // Kotak QR dan indikator halaman menumpang di atas papan. Sel yang tersentuh keduanya diblokir,
+  // dengan margin 16px, sebelum pengepakan dimulai. Koordinatnya dikonversi ke kanvas logis.
+  function kotakTerblokir() {
+    const { s, x, y } = L.skalaKanvas(area.clientWidth, area.clientHeight);
+    const a = area.getBoundingClientRect();
+    const hasil = [];
+    for (const el of [qrImg, halaman]) {
+      const r = el.getBoundingClientRect();
+      if (r.width === 0 || r.height === 0) continue;
+      hasil.push({
+        x: (r.left - a.left - x - MARGIN_BLOK) / s,
+        y: (r.top - a.top - y - MARGIN_BLOK) / s,
+        w: (r.width + 2 * MARGIN_BLOK) / s,
+        h: (r.height + 2 * MARGIN_BLOK) / s,
+      });
+    }
+    return hasil;
+  }
+
+  // Dipanggil saat data, ukuran area, atau posisi QR berubah. Menghitung ulang pembagian halaman.
   function hitungUlang() {
-    pages = L.paginasLayout(messages);
+    pages = L.paginasLayout(messages, kotakTerblokir());
   }
 
   function tampilkanHalaman(p) {
@@ -329,7 +363,11 @@
   aturSkala();
   bangun();
 
-  new ResizeObserver(aturSkala).observe(area);
+  new ResizeObserver(() => {
+    aturSkala();
+    hitungUlang();
+    segarkan();
+  }).observe(area);
 
   fetch('/api/config')
     .then((r) => r.json())
