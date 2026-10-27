@@ -123,6 +123,15 @@ Untuk lokal, cukup salin folder `./data` saat aplikasi berhenti.
 - [ ] Panitia moderasi sudah tahu alamat `/admin` dan cara memakainya dari HP.
 - [ ] Batas posting per perangkat: 1 ucapan per 20 detik dan 15 per jam. Pagar IP: 150 per jam.
 
+## Data uji dan pemeliharaan
+
+- `npm run seed`: 200 pesan approved contoh (3 sampai 280 huruf, sepertiga tanpa nama). Menggantikan seed approved sebelumnya.
+- `npm run seed:unapproved`: 30 pesan pending untuk mencoba moderasi. Menggantikan seed pending sebelumnya.
+- `npm run seed:reset`: hapus semua pesan, dengan salinan database lebih dulu.
+- Di `/admin`, bagian "Hapus semua ucapan" melakukan hal yang sama. Tombolnya aktif hanya setelah operator mengetik `HAPUS SEMUA`. Salinan database bernama `backup-<tanggal>.db` dibuat di `DATA_DIR` sebelum penghapusan, dan namanya ditampilkan setelah selesai.
+- `node scripts/ukur-tata-letak.js`: mengukur kemiringan, geseran, dan pelanggaran tata letak dari pesan approved.
+- Tangkapan layar yang dipakai untuk verifikasi ada di `docs/screenshots/`.
+
 ## Catatan teknis
 
 - Hanya ucapan berstatus `approved` yang tampil di `/wall`. Status `pending` dan `rejected` tidak pernah dikirim ke halaman publik.

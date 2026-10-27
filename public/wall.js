@@ -81,6 +81,12 @@
     pollTimer = setInterval(poll, settings.refresh * 1000);
   }
 
+  // Waktu satu putaran penuh: jumlah halaman dikali jeda rotasi. Ikut berubah saat jeda digeser.
+  function perbaruiPutaran() {
+    const menit = (L.jumlahHalaman(pages) * settings.rotasi) / 60;
+    document.getElementById('putaran').textContent = `Satu putaran penuh: ${menit.toFixed(1)} menit (${L.jumlahHalaman(pages)} halaman)`;
+  }
+
   function perbaruiOutput() {
     document.getElementById('out-ukuran-qr').textContent = `${settings.qrUkuran} px`;
     document.getElementById('out-jeda-refresh').textContent = `${settings.refresh} detik`;
@@ -90,6 +96,7 @@
     inputRotasi.value = settings.rotasi;
     const qrRadio = document.querySelector(`input[name="qr"][value="${settings.qr}"]`);
     if (qrRadio) qrRadio.checked = true;
+    perbaruiPutaran();
   }
 
   // Semua perubahan pengaturan lewat sini. Timer lama dibatalkan dulu sebelum yang baru dipasang,
@@ -179,11 +186,12 @@
 
   // Kanvas logis tetap (DESIGN_W x DESIGN_H). Grid papan dan pembagian halaman tidak bergantung layar.
   function aturKanvas() {
-    const C = L.jumlahKolom(L.DESIGN_W);
-    const R = L.jumlahBaris(L.DESIGN_H);
-    const cellW = (L.DESIGN_W - (C - 1) * L.GAP) / C;
+    // Grid harus sama dengan yang dipakai pembagian halaman: ukuran dan tepi kosong (EDGE) dari logika.
+    const { C, R, cellW } = L.kisiGrid();
     papan.style.width = `${L.DESIGN_W}px`;
     papan.style.height = `${L.DESIGN_H}px`;
+    papan.style.padding = `${L.EDGE}px`;
+    papan.style.gap = `${L.GAP}px`;
     papan.style.gridTemplateColumns = `repeat(${C}, ${cellW}px)`;
     papan.style.gridTemplateRows = `repeat(${R}, ${L.ROW_UNIT}px)`;
   }
@@ -216,6 +224,7 @@
   // Dipanggil saat data, ukuran area, atau posisi QR berubah. Menghitung ulang pembagian halaman.
   function hitungUlang() {
     pages = L.paginasLayout(messages, kotakTerblokir());
+    perbaruiPutaran();
   }
 
   function tampilkanHalaman(p) {

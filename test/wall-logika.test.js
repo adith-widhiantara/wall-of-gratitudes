@@ -138,7 +138,7 @@ test('pengaturan wall: URL menimpa tersimpan, nilai dijepit, nilai tidak valid m
   assert.deepEqual(L.pengaturanWall(tersimpan, {}), tersimpan);
   assert.deepEqual(
     L.pengaturanWall(tersimpan, { qr: 'kanan-atas', 'qr-ukuran': '999', refresh: '1', rotasi: 'abc' }),
-    { qr: 'kanan-atas', qrUkuran: 400, refresh: 3, rotasi: 15 },
+    { qr: 'kanan-atas', qrUkuran: 400, refresh: 3, rotasi: 10 },
   );
   assert.deepEqual(L.pengaturanWall({}, { qr: 'pojok' }), L.pengaturanWall({}, {}));
   assert.equal(L.pengaturanWall({}, {}).qrUkuran, 160);
@@ -194,4 +194,23 @@ test('ukuran kartu: minimal tiga ukuran sel yang berbeda, dan kemiringan lebih k
   }
   assert.ok(ukuran.size >= 3, `hanya ${ukuran.size} ukuran`);
   if (miringBesar !== null && miringKecil !== null) assert.ok(miringKecil > miringBesar);
+});
+
+test('kartu pendek (di bawah 20 huruf) tidak pernah lebih dari 1,4 kali lebarnya, dan tidak meninggi lewat peregangan', () => {
+  const { cellW } = L.kisiGrid();
+  const pesan = Array.from({ length: 30 }, (_, i) => ({ id: i + 1, message: 'a'.repeat(3 + (i % 17)), color: 'mint', created_at: i }));
+  for (const pg of L.paginasLayout(pesan, [])) {
+    for (const pl of pg) {
+      const lebar = pl.cs * cellW + (pl.cs - 1) * L.GAP + 2 * L.EXT;
+      const tinggi = pl.rs * L.ROW_UNIT + (pl.rs - 1) * L.GAP + 2 * L.EXT;
+      assert.ok(tinggi <= 1.4 * lebar, `kartu ${pl.m.id} terlalu tinggi`);
+      assert.equal(pl.cs, 1, 'kartu pendek tidak boleh melebar kolom');
+    }
+  }
+});
+
+test('peregangan kartu maksimal 1,3 kali tinggi alami', () => {
+  for (const pg of L.paginasLayout(daftar(200), [])) {
+    for (const pl of pg) assert.ok(pl.rs <= Math.floor(pl.rsAlami * 1.3));
+  }
 });

@@ -7,7 +7,7 @@ const cookie = require('@fastify/cookie');
 const formbody = require('@fastify/formbody');
 const fastifyStatic = require('@fastify/static');
 const QRCode = require('qrcode');
-const { openDb } = require('./db');
+const { openDb, kosongkanSemua } = require('./db');
 
 const COLORS = ['kuning', 'mint', 'biru', 'peach', 'mawar', 'lavender'];
 const STATUSES = ['pending', 'approved', 'rejected'];
@@ -226,6 +226,16 @@ function buildApp({ dataDir, adminPassword, cookieSecret, eventTitle, publicUrl,
       return reply.code(404).send({ ok: false, error: 'Pesan tidak ditemukan.' });
     }
     return { ok: true };
+  });
+
+  // Hapus semua ucapan. Wajib menyertakan konfirmasi di body. Salinan dibuat lebih dulu.
+  // Wall kembali kosong lewat checksum polling yang sudah ada.
+  app.delete('/api/admin/messages', { preHandler: requireAdmin }, async (req, reply) => {
+    if (req.body?.konfirmasi !== 'HAPUS SEMUA') {
+      return reply.code(400).send({ ok: false, error: 'Ketik HAPUS SEMUA untuk mengonfirmasi.' });
+    }
+    const hasil = await kosongkanSemua(db, dataDir);
+    return { ok: true, jumlah: hasil.jumlah, backup: hasil.backup };
   });
 
   app.post('/api/admin/approve-all', { preHandler: requireAdmin }, async () => ({

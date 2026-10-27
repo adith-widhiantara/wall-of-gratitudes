@@ -4,7 +4,7 @@
 
   // ---------- Konstanta ----------
 
-  const GAP = 12;
+  const GAP = 40;
   const ROW_UNIT = 60;
   const MIN_COL_W = 300;
   // Bantalan teks per sisi, dalam px kanvas. Kotak teks = kertas dikurangi PAD di tiap sisi.
@@ -15,7 +15,7 @@
   const TAPE_OUT = 20;
   // Geseran maksimal dari titik sel, sebagai fraksi lebar sel (x) dan tinggi sel (y).
   const GESER = 0.4;
-  // Kemiringan dalam derajat. Kartu kecil dapat MIRING_MAX, kartu penuh mendekati MIRING_MIN.
+  // Kemiringan dalam derajat. Besarnya antara setengah dan penuh batas, sesuai ukuran kartu.
   const MIRING_MIN = 3;
   const MIRING_MAX = 7;
   const SEL_PENUH = 8;
@@ -29,7 +29,7 @@
   const MAX_PER_PAGE = 14;
   const DETOUR_MS = 6000;
   const DETOUR_GAP_MS = 90000;
-  const ROTASI_BAWAAN_MS = 15000;
+  const ROTASI_BAWAAN_MS = 10000;
 
   // Kanvas logis tetap. Pembagian halaman bergantung pada kanvas ini dan pada daftar pesan.
   const DESIGN_W = 1856;
@@ -37,7 +37,7 @@
   const MARGIN_LAYAR = 24;
 
   const POSISI_QR = ['kanan-bawah', 'kanan-atas', 'kiri-atas', 'kiri-bawah', 'sembunyikan'];
-  const BAWAAN_WALL = { qr: 'kanan-bawah', qrUkuran: 160, refresh: 5, rotasi: 15 };
+  const BAWAAN_WALL = { qr: 'kanan-bawah', qrUkuran: 160, refresh: 5, rotasi: 10 };
   const RENTANG_WALL = { qrUkuran: [120, 400], refresh: [3, 30], rotasi: [8, 60] };
   const RENTANG_ADMIN = [5, 60];
   const BAWAAN_ADMIN_REFRESH = 10;
@@ -108,7 +108,8 @@
     return null;
   }
 
-  // Sel kosong di sekitar kartu diisi dengan memanjangkan kartu ke bawah lalu ke kanan.
+  // Peregangan untuk menutup sel kosong: hanya ke bawah, maksimal 1,3 kali tinggi alami kartu,
+  // dan tidak pernah menambah lebar kolom. Sel yang tetap kosong dibiarkan kosong.
   function isiLubang(page, occ, C, R) {
     const bebas = (r0, c0, rs, cs) => {
       if (r0 + rs > R || c0 + cs > C) return false;
@@ -117,25 +118,11 @@
       }
       return true;
     };
-    const isi = (r0, c0, rs, cs) => {
-      for (let i = r0; i < r0 + rs; i += 1) {
-        for (let j = c0; j < c0 + cs; j += 1) occ[i][j] = true;
-      }
-    };
     for (const pl of page) {
-      let besar = true;
-      while (besar) {
-        besar = false;
-        if (bebas(pl.row + pl.rs, pl.col, 1, pl.cs)) {
-          isi(pl.row + pl.rs, pl.col, 1, pl.cs);
-          pl.rs += 1;
-          besar = true;
-        }
-        if (bebas(pl.row, pl.col + pl.cs, pl.rs, 1)) {
-          isi(pl.row, pl.col + pl.cs, pl.rs, 1);
-          pl.cs += 1;
-          besar = true;
-        }
+      const batas = Math.floor(pl.rsAlami * 1.3);
+      while (pl.rs < batas && bebas(pl.row + pl.rs, pl.col, 1, pl.cs)) {
+        for (let j = pl.col; j < pl.col + pl.cs; j += 1) occ[pl.row + pl.rs][j] = true;
+        pl.rs += 1;
       }
     }
   }
@@ -259,11 +246,14 @@
     };
   }
 
-  // Geseran dan kemiringan dari seed, dikalikan faktor k (1, 1/2, 1/4, ... 0).
+  // Besaran geseran dan kemiringan dari seed. Tidak pernah nol: 0,5 sampai 1 kali batas.
+  // `sgn` membalik arah (cermin). `k` adalah faktor yang dicari selesaikanTabrakan.
   function terapkanGeser(pl, cellW) {
-    pl.dx = pl.fx * GESER * cellW * pl.k;
-    pl.dy = pl.fy * GESER * ROW_UNIT * pl.k;
-    pl.rot = pl.fr * pl.miringMaks * pl.k;
+    const besar = (f) => 0.5 + 0.5 * Math.abs(f);
+    const tanda = (f) => (f < 0 ? -1 : 1);
+    pl.dx = pl.sgn * tanda(pl.fx) * GESER * cellW * besar(pl.fx) * pl.k;
+    pl.dy = pl.sgn * tanda(pl.fy) * GESER * ROW_UNIT * besar(pl.fy) * pl.k;
+    pl.rot = pl.sgn * tanda(pl.fr) * pl.miringMaks * besar(pl.fr) * pl.k;
   }
 
   // Kertas, termasuk selotip, tidak boleh keluar dari kanvas. Kanvas adalah area yang terlihat.
@@ -272,46 +262,78 @@
     return poli.some(([x, y]) => x < -e || y < -e || x > DESIGN_W + e || y > DESIGN_H + e);
   }
 
-  // Pelanggaran pertama dalam urutan halaman. Kembalikan pasangan (i, j), atau null kalau bersih.
-  // Pasangan (i, i) berarti kartu i keluar dari kanvas sendirian.
-  function cariPelanggaran(page, cellW, blokir) {
-    const geo = page.map((pl) => geometriKartu(pl, cellW));
+  // Pelanggaran kanvas dan blokir untuk satu kartu.
+  function melanggarTepi(geo, blokir) {
+    if (keluarKanvas(geo.kertas)) return true;
     const kotak = (b) => sudutKotak(b.x + b.w / 2, b.y + b.h / 2, b.w / 2, b.h / 2, 0);
-    for (let i = 0; i < page.length; i += 1) {
-      if (keluarKanvas(geo[i].kertas)) return [i, i];
-      // Kertas tidak boleh masuk kotak QR atau indikator (yang sudah diberi margin).
-      for (const b of blokir || []) {
-        if (bertabrakan(geo[i].kertas, kotak(b))) return [i, i];
-      }
-    }
-    for (let i = 0; i < page.length; i += 1) {
-      for (let j = 0; j < page.length; j += 1) {
-        if (i === j) continue;
-        if (bertabrakan(geo[i].teks, geo[j].kertas)) return [i, j];
-        const kecil = Math.min(geo[i].luasKertas, geo[j].luasKertas);
-        if (luasTumpang(geo[i].luas, geo[j].luas) > TUMPANG_MAKS * kecil) return [i, j];
-      }
-    }
-    return null;
+    return (blokir || []).some((b) => bertabrakan(geo.kertas, kotak(b)));
   }
 
+  // Pelanggaran terhadap kartu lain: teks menabrak kertas, atau tumpang tindih di atas batas.
+  function melanggarKartu(a, b) {
+    if (bertabrakan(a.teks, b.kertas) || bertabrakan(b.teks, a.kertas)) return true;
+    const kecil = Math.min(a.luasKertas, b.luasKertas);
+    return luasTumpang(a.luas, b.luas) > TUMPANG_MAKS * kecil;
+  }
+
+  // Apakah kartu aman pada k dan arah yang sedang diset. Lawannya: kartu yang sudah dibekukan
+  // (pada k-nya), dan kartu yang belum diproses pada k = 0. Dengan begitu kartu yang belum
+  // diproses selalu punya posisi aman di sel-nya, dan tidak ada kartu yang terjepit.
+  function amanPada(pl, cellW, beku, sisa, blokir) {
+    const geo = geometriKartu(pl, cellW);
+    if (melanggarTepi(geo, blokir)) return false;
+    const lawan = [...beku, ...sisa.map((o) => ({ ...o, dx: 0, dy: 0, rot: 0 }))];
+    return lawan.every((o) => !melanggarKartu(geo, geometriKartu(o, cellW)));
+  }
+
+  // Cari k terbesar yang aman untuk satu arah: cek k = 1 dulu, lalu pencarian biner 8 iterasi.
+  function cariK(pl, sgn, cellW, beku, sisa, blokir) {
+    pl.sgn = sgn;
+    pl.k = 1;
+    terapkanGeser(pl, cellW);
+    if (amanPada(pl, cellW, beku, sisa, blokir)) return 1;
+    let lo = 0;
+    let hi = 1;
+    for (let it = 0; it < 8; it += 1) {
+      const mid = (lo + hi) / 2;
+      pl.k = mid;
+      terapkanGeser(pl, cellW);
+      if (amanPada(pl, cellW, beku, sisa, blokir)) lo = mid;
+      else hi = mid;
+    }
+    pl.k = lo;
+    terapkanGeser(pl, cellW);
+    return lo;
+  }
+
+  // Satu kartu per giliran, urut deterministik (z, lalu id). Kartu yang sudah diproses dibekukan
+  // pada k-nya. Kartu yang sedang diproses yang mengalah. Arah seed dicoba dulu; kalau terhalang,
+  // arah cermin dicoba pada k penuh sebelum k diperkecil.
   function selesaikanTabrakan(page, cellW, blokir) {
-    for (const pl of page) {
-      pl.k = 1;
+    const urut = [...page].sort((a, b) => a.z - b.z || a.m.id - b.m.id);
+    const beku = [];
+    for (let idx = 0; idx < urut.length; idx += 1) {
+      const pl = urut[idx];
+      const sisa = urut.slice(idx + 1);
+      const kS = cariK(pl, 1, cellW, beku, sisa, blokir);
+      let pilih = { sgn: 1, k: kS };
+      if (kS < 1) {
+        pl.sgn = -1;
+        pl.k = 1;
+        terapkanGeser(pl, cellW);
+        if (amanPada(pl, cellW, beku, sisa, blokir)) {
+          pilih = { sgn: -1, k: 1 };
+        } else {
+          const kM = cariK(pl, -1, cellW, beku, sisa, blokir);
+          if (kM > kS) pilih = { sgn: -1, k: kM };
+        }
+      }
+      pl.sgn = pilih.sgn;
+      pl.k = pilih.k;
       terapkanGeser(pl, cellW);
+      beku.push(pl);
     }
-    for (let iter = 0; iter < 1000; iter += 1) {
-      const pair = cariPelanggaran(page, cellW, blokir);
-      if (!pair) return true;
-      // Pangkas kartu dari pasangan yang geserannya masih lebih dari nol, yang terbesar lebih dulu.
-      // Kalau keduanya sudah nol, tidak ada lagi yang bisa dipangkas.
-      const kandidat = [...new Set(pair)].map((idx) => page[idx]).filter((pl) => pl.k > 0);
-      if (kandidat.length === 0) return false;
-      const pl = kandidat.reduce((a, b) => (b.k > a.k ? b : a));
-      pl.k = pl.k >= 1 / 64 ? pl.k / 2 : 0;
-      terapkanGeser(pl, cellW);
-    }
-    return false;
+    return true;
   }
 
   // ---------- Pembagian halaman ----------
@@ -367,6 +389,8 @@
           cs: slot.cs,
           rs: slot.rs,
           terpaksa: Boolean(slot.terpaksa),
+          rsAlami: slot.rs,
+          sgn: 1,
           fx: 2 * seed(m.id, 1) - 1,
           fy: 2 * seed(m.id, 2) - 1,
           fr: 2 * seed(m.id, 3) - 1,

@@ -761,3 +761,46 @@ textarea {
     animation: none;
   }
 }
+
+/* Baris waktu satu putaran penuh di panel pengaturan wall. */
+.panel .putaran {
+  font-size: 1.0625rem;
+  font-weight: 700;
+  margin: 0 0 16px;
+}
+
+/* Zona hapus semua di /admin: dipisah dari moderasi harian. */
+.zona-hapus {
+  margin-top: 48px;
+  padding: 20px 0 0;
+  border-top: 2px solid var(--garis);
+}
+
+.zona-hapus h2 {
+  font-size: 1.25rem;
+  margin: 0 0 8px;
+}
+
+.zona-hapus label {
+  display: block;
+  font-weight: 600;
+  margin: 12px 0 6px;
+}
+
+.zona-hapus input[type="text"] {
+  width: 100%;
+  font: inherit;
+  padding: 10px;
+  border: 2px solid var(--garis);
+  border-radius: 6px;
+  background: var(--kertas-input);
+}
+
+.zona-hapus .tombol-bahaya {
+  margin-top: 12px;
+}
+
+.tombol-bahaya:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}

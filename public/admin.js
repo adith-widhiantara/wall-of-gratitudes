@@ -266,6 +266,27 @@
   });
   document.getElementById('muat-ulang').addEventListener('click', () => muat());
 
+  // Hapus semua: dua langkah. Tombol aktif hanya setelah HAPUS SEMUA diketik persis.
+  const ketikHapus = document.getElementById('ketik-hapus');
+  const tombolHapus = document.getElementById('hapus-semua');
+  ketikHapus.addEventListener('input', () => {
+    tombolHapus.disabled = ketikHapus.value !== 'HAPUS SEMUA';
+  });
+  tombolHapus.addEventListener('click', async () => {
+    tombolHapus.disabled = true;
+    const hasil = document.getElementById('hasil-hapus');
+    try {
+      const data = await api('/api/admin/messages', { method: 'DELETE', body: { konfirmasi: 'HAPUS SEMUA' } });
+      hasil.textContent = `${data.jumlah} ucapan dihapus. Salinan database: ${data.backup} (ada di folder data).`;
+      ketikHapus.value = '';
+      await muat();
+    } catch (err) {
+      if (err instanceof SesiHabis) return tampilkanLogin();
+      hasil.textContent = err.message;
+      tombolHapus.disabled = ketikHapus.value !== 'HAPUS SEMUA';
+    }
+  });
+
   settings = L.pengaturanAdmin(bacaSimpanan());
   tampilkanSettings();
   mulaiRefresh();

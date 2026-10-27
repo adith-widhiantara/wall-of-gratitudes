@@ -49,6 +49,14 @@
       <p id="status" class="status" role="status"></p>
       <p id="kosong" class="kosong-admin" hidden></p>
       <ul id="daftar" class="daftar"></ul>
+      <section class="zona-hapus" aria-labelledby="hapus-judul">
+        <h2 id="hapus-judul">Hapus semua ucapan</h2>
+        <p>Salinan database dibuat dulu, lalu semua ucapan dihapus: menunggu, disetujui, dan ditolak. Dari layar ini tidak bisa dibatalkan.</p>
+        <label for="ketik-hapus">Ketik HAPUS SEMUA untuk mengaktifkan tombol</label>
+        <input id="ketik-hapus" type="text" autocomplete="off">
+        <button type="button" id="hapus-semua" class="tombol-bahaya" disabled>Hapus semua ucapan</button>
+        <p id="hasil-hapus" class="status" role="status"></p>
+      </section>
     </section>
   </main>
 </body>

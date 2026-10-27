@@ -29,4 +29,14 @@ function openDb(dataDir) {
   return db;
 }
 
-module.exports = { openDb };
+// Salinan database bertanggal lewat API backup (aman saat WAL aktif), lalu semua pesan dihapus.
+// Dipakai bersama oleh endpoint admin dan skrip seed:reset. Kalau salinan gagal, tidak ada yang dihapus.
+async function kosongkanSemua(db, dataDir) {
+  const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+  const backup = `backup-${stamp}.db`;
+  await db.backup(path.join(dataDir, backup));
+  const jumlah = db.prepare('DELETE FROM messages').run().changes;
+  return { backup, jumlah };
+}
+
+module.exports = { openDb, kosongkanSemua };

@@ -6,6 +6,7 @@ const crypto = require('node:crypto');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
+const Database = require('better-sqlite3');
 const { buildApp } = require('../src/app');
 const { checksum } = require('../public/wall-logika.js');
 
@@ -18,6 +19,7 @@ function setup() {
     eventTitle: 'Uji',
     publicUrl: '',
   });
+  app.wogDataDir = dataDir;
   return app;
 }
 
@@ -193,6 +195,38 @@ test('/index.html dialihkan ke / sehingga cookie perangkat tetap diberikan', asy
   const res = await app.inject({ method: 'GET', url: '/index.html' });
   assert.equal(res.statusCode, 301);
   assert.equal(res.headers.location, '/');
+  await app.close();
+});
+
+test('hapus semua: butuh login, konfirmasi, membuat salinan, mengosongkan tabel, mengubah checksum', async () => {
+  const app = setup();
+  const admin = await login(app);
+  for (let i = 0; i < 3; i += 1) {
+    await post(app, { name: `H${i}`, message: `Ucapan untuk dihapus ${i}`, color: 'biru' }, { device: uuid() });
+  }
+  const pending = (await app.inject({ method: 'GET', url: '/api/admin/messages?status=pending', cookies: { admin } })).json().messages;
+  await setStatus(app, admin, pending[0].id, 'approved');
+  const sebelum = (await app.inject({ method: 'GET', url: '/api/messages?since=0' })).json().checksum;
+
+  const tanpaLogin = await app.inject({ method: 'DELETE', url: '/api/admin/messages', payload: { konfirmasi: 'HAPUS SEMUA' } });
+  assert.equal(tanpaLogin.statusCode, 401);
+  const salah = await app.inject({ method: 'DELETE', url: '/api/admin/messages', cookies: { admin }, payload: { konfirmasi: 'hapus' } });
+  assert.equal(salah.statusCode, 400);
+
+  const res = await app.inject({ method: 'DELETE', url: '/api/admin/messages', cookies: { admin }, payload: { konfirmasi: 'HAPUS SEMUA' } });
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.json().jumlah, 3);
+  assert.match(res.json().backup, /^backup-.*\.db$/);
+  const berkas = res.json().backup;
+  const sesudah = (await app.inject({ method: 'GET', url: '/api/messages?since=0' })).json();
+  assert.equal(sesudah.total, 0);
+  assert.equal(sesudah.checksum, '0:0');
+  assert.notEqual(sesudah.checksum, sebelum);
+  const kosong = await app.inject({ method: 'GET', url: '/api/admin/messages?status=pending', cookies: { admin } });
+  assert.equal(kosong.json().counts.pending + kosong.json().counts.approved + kosong.json().counts.rejected, 0);
+  const salinan = new Database(path.join(app.wogDataDir, berkas), { readonly: true });
+  assert.equal(salinan.prepare('SELECT COUNT(*) AS n FROM messages').get().n, 3, 'salinan harus memuat 3 pesan');
+  salinan.close();
   await app.close();
 });
 

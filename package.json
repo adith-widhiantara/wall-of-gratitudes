@@ -4,10 +4,15 @@
   "private": true,
   "description": "Dinding ucapan syukur untuk event offline",
   "main": "src/server.js",
-  "engines": { "node": ">=20" },
+  "engines": {
+    "node": ">=20"
+  },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/app.test.js test/wall-logika.test.js"
+    "test": "node --test test/app.test.js test/wall-logika.test.js",
+    "seed": "node scripts/seed.js approved",
+    "seed:unapproved": "node scripts/seed.js pending",
+    "seed:reset": "node scripts/seed.js reset"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",
