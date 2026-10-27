@@ -38,12 +38,42 @@ atas gaya.
 - Jangan pakai font handwriting untuk isi pesan. Boleh untuk judul event saja.
 
 ## Liveliness dials
-ENERGY: sedang-tinggi. Ini acara, bukan admin panel. Wall boleh ramai dan padat.
-RHYTHM: bervariasi. Kartu tidak boleh seragam kaku — ukuran boleh sedikit beda
-        mengikuti panjang pesan, rotasi acak -3deg s/d +3deg, offset vertikal kecil.
-MOTION: hemat tapi ada. Gerakan hanya boleh dipakai saat menyampaikan informasi
-        (pesan baru masuk, ganti halaman). Tidak ada animasi dekoratif,
-        tidak ada parallax, tidak ada partikel, tidak ada elemen blur melayang.
+ENERGY: sedang-tinggi. Ini acara, bukan admin panel.
+RHYTHM: sengaja tidak rapi. Lihat bagian "Ketidakrapian" di bawah.
+MOTION: hemat. Gerakan hanya untuk menyampaikan informasi.
+
+## Ketidakrapian (wajib, bukan opsional)
+Papan harus terbaca seperti kertas yang ditempel satu per satu oleh orang
+berbeda sepanjang hari, bukan seperti galeri kartu. Manusia tidak pernah
+menempel dengan jarak yang sama.
+
+Angka yang mengikat:
+- Kemiringan: sampai 7 derajat ke kiri atau kanan. Kartu besar dapat
+  kemiringan lebih kecil (kertas besar lebih berat, tergantung lebih lurus),
+  kartu kecil dapat kemiringan penuh.
+- Geseran dari titik grid: sampai 40% lebar sel, pada kedua sumbu.
+- Tumpang tindih: sampai 12% luas kartu, hanya di area sudut, tidak pernah
+  menutupi teks.
+- Ukuran kartu mengikuti panjang pesan. Minimal 3 ukuran yang jelas berbeda.
+- Bayangan: kartu yang lebih miring bayangannya sedikit lebih panjang dan
+  condong ke satu sisi.
+- Kerapatan tidak seragam. Papan tidak boleh punya margin dalam yang sama
+  di semua sisi.
+
+Uji penerimaan untuk bagian ini: kalau seseorang melihat papan ini dari
+jarak 8 meter dan masih bisa menebak bahwa kartunya ditata grid, angkanya
+masih terlalu kecil. Nilainya dari tampilan, bukan dari kepatuhan aturan.
+
+Yang TIDAK BOLEH terjadi, berapa pun acaknya:
+- Teks tertutup kartu lain.
+- Kartu terpotong tepi layar.
+- Lubang kosong sebesar satu kartu penuh di tengah papan.
+- Posisi atau kemiringan berubah saat data di-refresh. Semua nilai acak
+  diturunkan dari id pesan.
+
+Satu benda penanda diperbolehkan, pilih SATU saja dan pakai konsisten:
+selotip kertas di satu sudut, atau jejak paku payung. CSS murni, tanpa file
+gambar. Kalau hasilnya terlihat seperti stiker clipart, buang saja.
 
 ## Yang dilarang di proyek ini
 - Gradient apa pun, terutama ungu→biru.
