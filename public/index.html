@@ -1,0 +1,71 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Kirim ucapan</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/form.js" defer></script>
+</head>
+<body class="halaman-form">
+  <main class="form-wrap">
+    <h1 id="judul" class="judul-event">Wall of Gratitude</h1>
+
+    <form id="form" novalidate>
+      <div class="hp" aria-hidden="true">
+        <label for="website">Situs web</label>
+        <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+      </div>
+
+      <div class="field">
+        <label for="nama">Nama (opsional)</label>
+        <input id="nama" name="name" type="text" maxlength="30" placeholder="Nama kamu (boleh dikosongi)" autocomplete="name">
+        <p class="err" id="err-name" hidden></p>
+      </div>
+
+      <div class="field">
+        <label for="pesan">Ucapan syukur atau terima kasih</label>
+        <textarea id="pesan" name="message" rows="5" maxlength="280" aria-describedby="err-message hitung"></textarea>
+        <div class="baris-info">
+          <p class="err" id="err-message" hidden></p>
+          <p id="hitung" class="hitung" aria-live="polite">0/280</p>
+        </div>
+      </div>
+
+      <fieldset class="field">
+        <legend>Warna kertas</legend>
+        <div class="warna">
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="kuning"><span class="swatch sw-kuning" aria-hidden="true"></span><span class="sr">Kuning</span>
+          </label>
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="mint"><span class="swatch sw-mint" aria-hidden="true"></span><span class="sr">Mint</span>
+          </label>
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="biru"><span class="swatch sw-biru" aria-hidden="true"></span><span class="sr">Biru</span>
+          </label>
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="peach"><span class="swatch sw-peach" aria-hidden="true"></span><span class="sr">Peach</span>
+          </label>
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="mawar"><span class="swatch sw-mawar" aria-hidden="true"></span><span class="sr">Mawar</span>
+          </label>
+          <label class="pilih-warna">
+            <input type="radio" name="color" value="lavender"><span class="swatch sw-lavender" aria-hidden="true"></span><span class="sr">Lavender</span>
+          </label>
+        </div>
+        <p class="err" id="err-color" hidden></p>
+      </fieldset>
+
+      <p class="err err-umum" id="err-umum" role="alert" hidden></p>
+
+      <button type="submit" id="kirim" class="kirim">Kirim</button>
+    </form>
+
+    <section id="sukses" class="sukses" hidden tabindex="-1">
+      <p>Terima kasih! Pesanmu akan tampil di layar setelah disetujui panitia.</p>
+      <button type="button" id="kirim-lagi" class="kirim-lagi">Kirim lagi</button>
+    </section>
+  </main>
+</body>
+</html>

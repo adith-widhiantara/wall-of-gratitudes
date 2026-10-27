@@ -1,0 +1,20 @@
+{
+  "name": "wall-of-gratitude",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Dinding ucapan syukur untuk event offline",
+  "main": "src/server.js",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test test/app.test.js"
+  },
+  "dependencies": {
+    "@fastify/cookie": "^11.0.0",
+    "@fastify/formbody": "^8.0.0",
+    "@fastify/static": "^8.0.0",
+    "better-sqlite3": "^11.0.0",
+    "fastify": "^5.0.0",
+    "qrcode": "^1.5.4"
+  }
+}

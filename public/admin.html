@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Moderasi ucapan</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/admin.js" defer></script>
+</head>
+<body class="halaman-admin">
+  <main class="admin-wrap">
+    <section id="masuk" class="masuk" hidden>
+      <h1>Masuk moderasi</h1>
+      <form id="form-masuk" novalidate>
+        <div class="field">
+          <label for="password">Password admin</label>
+          <input id="password" name="password" type="password" autocomplete="current-password" required>
+          <p class="err" id="err-masuk" hidden></p>
+        </div>
+        <button type="submit" class="kirim">Masuk</button>
+      </form>
+    </section>
+
+    <section id="panel" hidden>
+      <header class="admin-kepala">
+        <h1 id="judul">Moderasi ucapan</h1>
+        <button type="button" id="keluar" class="tombol-kecil">Keluar</button>
+      </header>
+
+      <nav class="tabs" aria-label="Status ucapan">
+        <button type="button" class="tab" data-status="pending" aria-pressed="true">Menunggu (<span id="n-pending">0</span>)</button>
+        <button type="button" class="tab" data-status="approved" aria-pressed="false">Disetujui (<span id="n-approved">0</span>)</button>
+        <button type="button" class="tab" data-status="rejected" aria-pressed="false">Ditolak (<span id="n-rejected">0</span>)</button>
+      </nav>
+
+      <div class="aksi-massal" id="aksi-massal">
+        <button type="button" id="setujui-semua" class="tombol-sekunder">Setujui semua menunggu</button>
+      </div>
+
+      <p id="status" class="status" role="status"></p>
+      <p id="kosong" class="kosong-admin" hidden></p>
+      <ul id="daftar" class="daftar"></ul>
+    </section>
+  </main>
+</body>
+</html>

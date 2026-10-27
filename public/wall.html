@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Wall of Gratitude</title>
+  <link rel="stylesheet" href="/app.css">
+  <script src="/wall.js" defer></script>
+</head>
+<body class="halaman-wall">
+  <header class="kepala">
+    <h1 id="judul">Wall of Gratitude</h1>
+    <p id="jumlah" class="jumlah"></p>
+    <button type="button" id="layar-penuh" class="tombol-kecil">Layar penuh</button>
+  </header>
+
+  <main class="area-papan">
+    <div id="papan" class="papan"></div>
+    <p id="kosong" class="kosong" hidden>Scan QR di pojok kanan bawah untuk ikut menulis ucapan.</p>
+  </main>
+
+  <footer class="kaki">
+    <p id="halaman" class="halaman"></p>
+    <img src="/qr.svg" alt="Kode QR ke formulir ucapan" class="qr" width="160" height="160">
+  </footer>
+</body>
+</html>

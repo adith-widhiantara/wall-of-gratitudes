@@ -1,0 +1,15 @@
+services:
+  wall:
+    build: .
+    ports:
+      - "8080:8080"
+    environment:
+      PORT: "8080"
+      DATA_DIR: /data
+      ADMIN_PASSWORD: ${ADMIN_PASSWORD:?isi ADMIN_PASSWORD di file .env}
+      COOKIE_SECRET: ${COOKIE_SECRET:?isi COOKIE_SECRET di file .env}
+      EVENT_TITLE: ${EVENT_TITLE:-Wall of Gratitude}
+      PUBLIC_URL: ${PUBLIC_URL:-http://localhost:8080}
+    volumes:
+      - ./data:/data
+    restart: unless-stopped
