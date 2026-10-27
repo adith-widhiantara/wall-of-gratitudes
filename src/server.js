@@ -14,12 +14,22 @@ if (cookieSecret.length < 16 || cookieSecret === 'ganti-saya-cookie-secret') {
   process.exit(1);
 }
 
+const publicUrl = (process.env.PUBLIC_URL || '').replace(/\/$/, '');
+
+if (process.env.NODE_ENV === 'production' && !publicUrl.startsWith('https://')) {
+  console.warn(
+    'PERINGATAN: NODE_ENV=production tetapi PUBLIC_URL kosong atau bukan https. ' +
+      'Cookie admin dan cookie perangkat tidak diberi flag Secure.',
+  );
+}
+
 const app = buildApp({
   dataDir: process.env.DATA_DIR || './data',
   adminPassword,
   cookieSecret,
   eventTitle: process.env.EVENT_TITLE || 'Wall of Gratitude',
-  publicUrl: (process.env.PUBLIC_URL || '').replace(/\/$/, ''),
+  publicUrl,
+  trustProxy: process.env.TRUST_PROXY === '1',
 });
 
 const port = Number(process.env.PORT) || 8080;

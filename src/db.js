@@ -16,11 +16,16 @@ function openDb(dataDir) {
       color TEXT NOT NULL,
       status TEXT NOT NULL DEFAULT 'pending',
       created_at INTEGER NOT NULL,
-      ip_hash TEXT
+      ip_hash TEXT,
+      device_hash TEXT NULL
     );
     CREATE INDEX IF NOT EXISTS idx_messages_status ON messages (status, created_at);
     CREATE INDEX IF NOT EXISTS idx_messages_ip ON messages (ip_hash, created_at);
   `);
+  // Migrasi untuk database yang dibuat sebelum kolom device_hash ada.
+  const kolom = db.prepare('PRAGMA table_info(messages)').all().map((c) => c.name);
+  if (!kolom.includes('device_hash')) db.exec('ALTER TABLE messages ADD COLUMN device_hash TEXT NULL');
+  db.exec('CREATE INDEX IF NOT EXISTS idx_messages_device ON messages (device_hash, created_at)');
   return db;
 }
 

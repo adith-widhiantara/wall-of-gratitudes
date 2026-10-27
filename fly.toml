@@ -5,6 +5,7 @@ primary_region = "sin"
 [env]
   PORT = "8080"
   DATA_DIR = "/data"
+  TRUST_PROXY = "1"
   EVENT_TITLE = "Wall of Gratitude"
   # PUBLIC_URL diisi lewat secret: fly secrets set PUBLIC_URL=https://nama-app.fly.dev
 

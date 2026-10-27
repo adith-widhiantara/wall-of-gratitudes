@@ -1,10 +1,10 @@
 (() => {
   'use strict';
 
-  const PAGE_SIZE = 12;
-  const ROTATE_MS = 15000;
+  const { PAGE_SIZE, ROTATE_MS, DETOUR_MS, jumlahHalaman, halamanTampil, checksum } = window.WallLogika;
   const POLL_MS = 5000;
-  const FULL_SYNC_EVERY = 12; // sekitar 60 detik, menangkap pesan yang dihapus atau dicabut
+  const TICK_MS = 1000;
+  const FULL_SYNC_EVERY = 12; // jaring pengaman berkala, sekitar 60 detik
   const FRESH_MS = 3000;
   const IDLE_MS = 3000;
   const FADE_MS = 400;
@@ -18,9 +18,10 @@
   let messages = []; // approved, terbaru dulu
   let signature = '';
   let maxId = 0;
-  let page = 0;
   let polls = 0;
-  let rotateTimer = null;
+  let shown = -1;
+  let detour = null; // { halaman, sampai } untuk pesan baru
+  let renderId = 0;
   let freshIds = new Set();
   let freshTimer = null;
 
@@ -29,17 +30,12 @@
     return ((id * 9301 + 49297) % 233280) / 233280;
   }
 
-  function pageCount() {
-    return Math.max(1, Math.ceil(messages.length / PAGE_SIZE));
-  }
-
   function buatKartu(m) {
     const card = document.createElement('article');
     card.className = `kartu warna-${m.color}`;
     if (freshIds.has(m.id)) card.classList.add('baru');
     if (!reduceMotion.matches) {
-      const s = seed(m.id);
-      const tilt = (s * 6 - 3).toFixed(2);
+      const tilt = (seed(m.id) * 6 - 3).toFixed(2);
       const shift = Math.round((seed(m.id + 7) - 0.5) * 8);
       card.style.transform = `translateY(${shift}px) rotate(${tilt}deg)`;
     }
@@ -53,34 +49,40 @@
     return card;
   }
 
-  function tampilkanHalaman() {
-    const total = pageCount();
-    if (page >= total) page = 0;
-    const slice = messages.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE);
+  function tampilkanHalaman(p) {
+    const id = ++renderId;
     const ganti = () => {
+      if (id !== renderId) return; // digantikan render yang lebih baru
+      const total = jumlahHalaman(messages.length);
+      const slice = messages.slice(p * PAGE_SIZE, p * PAGE_SIZE + PAGE_SIZE);
       papan.replaceChildren(...slice.map(buatKartu));
-      halaman.textContent = total > 1 ? `Halaman ${page + 1}/${total}` : '';
+      halaman.textContent = total > 1 ? `Halaman ${p + 1}/${total}` : '';
       kosong.hidden = messages.length > 0;
+      papan.classList.remove('keluar');
     };
     if (reduceMotion.matches || papan.childElementCount === 0) {
       ganti();
-      papan.classList.remove('keluar');
       return;
     }
     papan.classList.add('keluar');
-    setTimeout(() => {
-      ganti();
-      papan.classList.remove('keluar');
-    }, FADE_MS);
+    setTimeout(ganti, FADE_MS);
   }
 
-  function mulaiRotasi() {
-    clearInterval(rotateTimer);
-    rotateTimer = setInterval(() => {
-      if (pageCount() < 2) return;
-      page = (page + 1) % pageCount();
-      tampilkanHalaman();
-    }, ROTATE_MS);
+  // Dipanggil tiap detik. Tidak pernah me-reset rotasi, hanya menampilkan halaman yang seharusnya.
+  function tick() {
+    const now = Date.now();
+    if (detour && now >= detour.sampai) detour = null;
+    const p = halamanTampil(now, jumlahHalaman(messages.length), detour);
+    if (p !== shown) {
+      shown = p;
+      tampilkanHalaman(p);
+    }
+  }
+
+  // Data berubah: render ulang halaman yang sedang tampil.
+  function segarkan() {
+    shown = -1;
+    tick();
   }
 
   function urutkan(list) {
@@ -92,16 +94,16 @@
   }
 
   function tampilkanPesanBaru(baru) {
-    // Pesan baru langsung ke halaman pertama, supaya penonton melihatnya segera.
-    page = 0;
+    // Pesan baru ditampilkan di halaman tempatnya berada, selama DETOUR_MS. Rotasi tidak di-reset.
+    const posisi = Math.min(...baru.map((m) => messages.indexOf(m)));
+    detour = { halaman: Math.floor(posisi / PAGE_SIZE), sampai: Date.now() + DETOUR_MS };
     freshIds = new Set(baru.map((m) => m.id));
-    tampilkanHalaman();
-    mulaiRotasi();
     clearTimeout(freshTimer);
     freshTimer = setTimeout(() => {
       freshIds.clear();
       papan.querySelectorAll('.baru').forEach((el) => el.classList.remove('baru'));
     }, FRESH_MS);
+    segarkan();
   }
 
   async function ambil(url) {
@@ -121,27 +123,18 @@
     maxId = messages.reduce((mx, m) => Math.max(mx, m.id), maxId);
     const baru = messages.filter((m) => !knownBefore.has(m.id));
     if (baru.length > 0 && knownBefore.size > 0) tampilkanPesanBaru(baru);
-    else tampilkanHalaman();
-  }
-
-  async function tarikBaru() {
-    const data = await ambil(`/api/messages?since=${maxId}`);
-    perbaruiJumlah(data.total);
-    if (data.messages.length === 0) return;
-    const existing = new Set(messages.map((m) => m.id));
-    const baru = data.messages.filter((m) => !existing.has(m.id));
-    if (baru.length === 0) return;
-    messages = urutkan(messages.concat(baru));
-    maxId = data.messages.reduce((mx, m) => Math.max(mx, m.id), maxId);
-    signature = messages.map((m) => m.id).join(',');
-    tampilkanPesanBaru(baru);
+    else segarkan();
   }
 
   async function poll() {
     polls += 1;
     try {
-      if (polls % FULL_SYNC_EVERY === 0) await tarikPenuh();
-      else await tarikBaru();
+      const data = await ambil(`/api/messages?since=${maxId}`);
+      perbaruiJumlah(data.total);
+      // Checksum mendeteksi penambahan, pencabutan, dan penghapusan sekaligus.
+      if (data.checksum !== checksum(messages) || polls % FULL_SYNC_EVERY === 0) {
+        await tarikPenuh();
+      }
     } catch {
       // Gagal sesaat: biarkan tampilan lama, coba lagi di siklus berikutnya.
     }
@@ -179,10 +172,8 @@
     })
     .catch(() => {});
 
+  setInterval(tick, TICK_MS);
   tarikPenuh()
     .catch(() => {})
-    .finally(() => {
-      mulaiRotasi();
-      setInterval(poll, POLL_MS);
-    });
+    .finally(() => setInterval(poll, POLL_MS));
 })();

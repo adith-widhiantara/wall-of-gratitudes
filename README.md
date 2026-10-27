@@ -55,6 +55,7 @@ npm test
 | `DATA_DIR` | tidak | Default `./data`. Di container `/data`. |
 | `EVENT_TITLE` | tidak | Judul event. Default `Wall of Gratitude`. |
 | `PUBLIC_URL` | tidak | URL publik, dipakai untuk isi QR. Kalau kosong, QR memakai host request. |
+| `TRUST_PROXY` | tidak | Set `1` hanya di balik reverse proxy (sudah diset di `fly.toml`). Tanpa ini, IP yang dicatat adalah IP proxy. |
 
 ## Deploy ke Fly.io (dari nol)
 
@@ -88,8 +89,10 @@ npm test
 5. Deploy:
 
    ```bash
-   fly deploy
+   fly deploy --ha=false
    ```
+
+   `--ha=false` membuat satu mesin saja. Default Fly membuat dua mesin untuk ketersediaan tinggi, tetapi volume `gratitude_data` hanya ada satu dan terikat ke satu mesin, jadi mesin kedua tidak bisa memasang volume yang sama.
 
 6. Cek: `https://nama-app.fly.dev/healthz` harus mengembalikan `{"ok":true}`.
 
@@ -118,10 +121,14 @@ Untuk lokal, cukup salin folder `./data` saat aplikasi berhenti.
 - [ ] Mesin tidak sleep: `fly status` menunjukkan 1 mesin running.
 - [ ] Backup pertama sudah diambil sebelum acara dimulai.
 - [ ] Panitia moderasi sudah tahu alamat `/admin` dan cara memakainya dari HP.
-- [ ] Batas posting: 1 ucapan per 20 detik dan 15 per jam per perangkat. Sesuaikan kalau acara ramai dari satu jaringan Wi-Fi, karena IP yang sama bisa kena batas.
+- [ ] Batas posting per perangkat: 1 ucapan per 20 detik dan 15 per jam. Pagar IP: 150 per jam.
 
 ## Catatan teknis
 
 - Hanya ucapan berstatus `approved` yang tampil di `/wall`. Status `pending` dan `rejected` tidak pernah dikirim ke halaman publik.
 - Nama tidak diisi tampil sebagai "Anonim".
-- Log tidak mencatat isi pesan atau IP mentah. Yang disimpan hanya `sha256(ip + COOKIE_SECRET)`.
+- Log tidak mencatat isi pesan atau IP mentah. Yang disimpan hanya hash `sha256(ip + COOKIE_SECRET)` dan `sha256(id perangkat + COOKIE_SECRET)`.
+- Perangkat dikenali dari cookie `device` yang diberikan saat membuka `/`. Peserta yang menghapus cookie (mode penyamaran) hanya terkena pagar IP. Pengguna yang sengaja berganti cookie bisa melewati batas per perangkat, dan pagar IP tetap berlaku.
+- Pagar IP 150 per jam itu longgar karena satu Wi-Fi acara memakai satu IP.
+- Wall menyinkronkan perubahan dengan membandingkan `checksum` (jumlah dan jumlah id pesan approved). Penambahan, pencabutan, dan penghapusan terlihat dalam sekitar 5 detik.
+- Rotasi halaman berbasis jam. Pesan baru ditampilkan 8 detik di halamannya sebagai selingan, lalu rotasi berjalan seperti biasa.

@@ -7,7 +7,7 @@
   "engines": { "node": ">=20" },
   "scripts": {
     "start": "node src/server.js",
-    "test": "node --test test/app.test.js"
+    "test": "node --test test/app.test.js test/wall-logika.test.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.0",
