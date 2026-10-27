@@ -101,6 +101,9 @@ function buildApp({ dataDir, adminPassword, cookieSecret, eventTitle, publicUrl,
     return reply.sendFile('index.html');
   });
 
+  // /index.html diarahkan ke / supaya cookie perangkat selalu diberikan lewat satu handler.
+  app.get('/index.html', (req, reply) => reply.redirect('/', 301));
+
   for (const page of ['wall', 'admin', 'qr']) {
     app.get(`/${page}`, (req, reply) => reply.sendFile(`${page}.html`));
   }

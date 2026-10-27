@@ -1,7 +1,8 @@
 (() => {
   'use strict';
 
-  const REFRESH_MS = 10000;
+  const STORAGE_KEY = 'wog-admin';
+  const L = window.WallLogika;
   const LABEL_KOSONG = {
     pending: 'Tidak ada ucapan yang menunggu.',
     approved: 'Belum ada ucapan yang disetujui.',
@@ -17,6 +18,8 @@
   const aksiMassal = document.getElementById('aksi-massal');
 
   let status = 'pending';
+  let settings = L.pengaturanAdmin({});
+  let refreshTimer = null;
   let items = [];
   let counts = { pending: 0, approved: 0, rejected: 0 };
 
@@ -208,10 +211,64 @@
     }
   });
 
-  // Daftar menunggu diperbarui otomatis tiap 10 detik.
-  setInterval(() => {
-    if (!panel.hidden && status === 'pending') muat();
-  }, REFRESH_MS);
+  // Satu interval saja. Setiap perubahan jeda membatalkan yang lama. Mode mati tidak memasang interval.
+  function mulaiRefresh() {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+    const mati = settings.refresh === 'mati';
+    document.getElementById('muat-ulang').hidden = !mati;
+    if (mati) return;
+    refreshTimer = setInterval(() => {
+      if (!panel.hidden && status === 'pending') muat();
+    }, settings.refresh * 1000);
+  }
+
+  function bacaSimpanan() {
+    try {
+      return JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+    } catch {
+      return {};
+    }
+  }
+
+  function simpanSettings() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+    } catch {
+      // Penyimpanan diblokir: pengaturan tetap berlaku untuk sesi ini.
+    }
+  }
+
+  const jedaInput = document.getElementById('jeda-admin');
+  const matiInput = document.getElementById('mati-admin');
+  const jedaOutput = document.getElementById('out-jeda-admin');
+
+  function tampilkanSettings() {
+    const mati = settings.refresh === 'mati';
+    matiInput.checked = mati;
+    jedaInput.disabled = mati;
+    const nilai = mati ? L.BAWAAN_ADMIN_REFRESH : settings.refresh;
+    jedaInput.value = nilai;
+    jedaOutput.textContent = mati ? 'mati' : `${nilai} detik`;
+  }
+
+  jedaInput.addEventListener('input', () => {
+    settings = { refresh: Number(jedaInput.value) };
+    tampilkanSettings();
+    simpanSettings();
+    mulaiRefresh();
+  });
+  matiInput.addEventListener('change', () => {
+    settings = matiInput.checked ? { refresh: 'mati' } : { refresh: L.BAWAAN_ADMIN_REFRESH };
+    tampilkanSettings();
+    simpanSettings();
+    mulaiRefresh();
+  });
+  document.getElementById('muat-ulang').addEventListener('click', () => muat());
+
+  settings = L.pengaturanAdmin(bacaSimpanan());
+  tampilkanSettings();
+  mulaiRefresh();
 
   api('/api/admin/messages?status=pending')
     .then((data) => {

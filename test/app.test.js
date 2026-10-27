@@ -188,6 +188,14 @@ test('checksum berubah saat pesan lama disetujui setelah pesan baru, dicabut, at
   await app.close();
 });
 
+test('/index.html dialihkan ke / sehingga cookie perangkat tetap diberikan', async () => {
+  const app = setup();
+  const res = await app.inject({ method: 'GET', url: '/index.html' });
+  assert.equal(res.statusCode, 301);
+  assert.equal(res.headers.location, '/');
+  await app.close();
+});
+
 test('healthz dan header keamanan', async () => {
   const app = setup();
   const res = await app.inject({ method: 'GET', url: '/healthz' });

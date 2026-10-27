@@ -233,17 +233,44 @@ textarea {
 
 /* ---------- Wall (proyektor 1920x1080) ---------- */
 
+/* Posisi QR diatur lewat kelas di <body>. Area papan menyusut mengikuti QR, jadi kartu tidak pernah tertimpa QR. */
 .halaman-wall {
-  min-height: 100vh;
+  height: 100vh;
+  margin: 0;
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  overflow: hidden;
   background: var(--latar-wall);
   color: var(--kertas);
-  display: flex;
-  flex-direction: column;
-  height: 100vh;
-  overflow: hidden;
+}
+
+.qr-kanan-bawah {
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "kepala kepala" "papan papan" "kaki qr";
+}
+
+.qr-kanan-atas {
+  grid-template-columns: 1fr auto;
+  grid-template-areas: "kepala kepala" "papan qr" "kaki kaki";
+}
+
+.qr-kiri-atas {
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "kepala kepala" "qr papan" "kaki kaki";
+}
+
+.qr-kiri-bawah {
+  grid-template-columns: auto 1fr;
+  grid-template-areas: "kepala kepala" "papan papan" "qr kaki";
+}
+
+.qr-sembunyikan {
+  grid-template-columns: 1fr;
+  grid-template-areas: "kepala" "papan" "kaki";
 }
 
 .kepala {
+  grid-area: kepala;
   display: flex;
   align-items: center;
   gap: 24px;
@@ -263,13 +290,15 @@ textarea {
   opacity: 0.8;
 }
 
-.kepala .tombol-kecil {
+.kontrol {
   margin-left: auto;
+  display: flex;
+  gap: 8px;
 }
 
 .tombol-kecil {
   font: inherit;
-  font-size: 0.9375rem;
+  font-size: 1rem;
   color: var(--kertas);
   background: transparent;
   border: 2px solid rgba(246, 241, 232, 0.5);
@@ -280,17 +309,21 @@ textarea {
 }
 
 .area-papan {
-  flex: 1;
+  grid-area: papan;
   position: relative;
-  padding: 24px 32px;
+  min-width: 0;
+  min-height: 0;
   overflow: hidden;
 }
 
+/* Ukuran dan skala kanvas diatur wall.js. Kanvas diletakkan di tengah area lewat transform. */
 .papan {
+  position: absolute;
+  left: 0;
+  top: 0;
+  transform-origin: 0 0;
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 28px 24px;
-  align-content: start;
+  gap: 12px;
   transition: opacity 0.4s ease;
 }
 
@@ -298,12 +331,14 @@ textarea {
   opacity: 0;
 }
 
+/* Kartu melebar 2px ke tiap sisi (EXT di wall-logika.js). Padding 28px menjaga teks tetap di dalam. */
 .kartu {
+  margin: -2px;
+  padding: 28px;
   color: var(--teks);
   border-radius: 2px;
-  padding: 22px 24px 18px;
   box-shadow: 0 8px 16px rgba(0, 0, 0, 0.35);
-  transform-origin: center;
+  overflow: visible;
 }
 
 .kartu.warna-kuning { background: var(--kuning); }
@@ -317,7 +352,7 @@ textarea {
   font-size: 1.5rem;
   line-height: 1.45;
   font-weight: 500;
-  margin: 0 0 14px;
+  margin: 0;
   overflow-wrap: anywhere;
   white-space: pre-line;
 }
@@ -326,7 +361,7 @@ textarea {
   font-size: 1.0625rem;
   font-style: italic;
   opacity: 0.8; /* 0.7 gagal 4.5:1 di atas mawar dan biru */
-  margin: 0;
+  margin: 12px 0 0;
 }
 
 .kartu.baru {
@@ -359,11 +394,34 @@ textarea {
   padding: 0 32px;
 }
 
+.qr-wrap {
+  grid-area: qr;
+  align-self: end;
+  padding: 12px 24px;
+  line-height: 0;
+}
+
+.qr-kanan-atas .qr-wrap,
+.qr-kiri-atas .qr-wrap {
+  align-self: start;
+}
+
+.qr-wrap img {
+  display: block;
+  width: var(--qr, 160px);
+  height: var(--qr, 160px);
+  border-radius: 4px;
+}
+
+.qr-sembunyikan .qr-wrap {
+  display: none;
+}
+
 .kaki {
+  grid-area: kaki;
   display: flex;
   align-items: flex-end;
-  justify-content: space-between;
-  padding: 12px 32px 16px;
+  padding: 12px 24px 16px;
 }
 
 .halaman {
@@ -372,17 +430,100 @@ textarea {
   opacity: 0.7;
 }
 
-.qr {
-  display: block;
-  width: 160px;
-  height: 160px;
-  margin-left: auto;
-  border-radius: 4px;
-}
-
 .halaman-wall.sembunyi-kursor,
 .halaman-wall.sembunyi-kursor * {
   cursor: none;
+}
+
+.sembunyi-kontrol .kontrol {
+  visibility: hidden;
+}
+
+/* Panel pengaturan: teks besar, kontrol minimal 44px, tanpa animasi buka-tutup. */
+.panel {
+  position: fixed;
+  top: 76px;
+  right: 24px;
+  z-index: 100;
+  width: min(440px, calc(100vw - 48px));
+  max-height: calc(100vh - 96px);
+  overflow-y: auto;
+  padding: 20px 22px;
+  background: var(--teks);
+  color: var(--kertas);
+  border: 2px solid var(--kertas);
+  border-radius: 8px;
+}
+
+.panel h2 {
+  font-size: 1.5rem;
+  margin: 0 0 16px;
+}
+
+.panel .grup {
+  border: 0;
+  margin: 0 0 20px;
+  padding: 0;
+  min-width: 0;
+}
+
+.panel legend,
+.panel label {
+  font-size: 1.125rem;
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.panel .pilihan {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  margin: 0;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.panel .pilihan input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
+
+.panel input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0;
+  accent-color: var(--kertas);
+}
+
+.panel output {
+  font-weight: 700;
+  margin-left: 6px;
+}
+
+.aksi-panel {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+}
+
+.aksi-panel button {
+  font: inherit;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 16px;
+  color: var(--kertas);
+  background: transparent;
+  border: 2px solid var(--kertas);
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+.halaman-wall :focus-visible {
+  outline-color: var(--kertas);
 }
 
 /* ---------- QR besar ---------- */
@@ -411,6 +552,46 @@ textarea {
 }
 
 /* ---------- Admin ---------- */
+
+.grup-admin {
+  border: 0;
+  margin: 0 0 12px;
+  padding: 0;
+  min-width: 0;
+}
+
+.grup-admin legend {
+  font-weight: 700;
+  margin-bottom: 8px;
+}
+
+.grup-admin label {
+  display: block;
+  font-weight: 600;
+  margin-bottom: 4px;
+}
+
+.grup-admin input[type="range"] {
+  display: block;
+  width: 100%;
+  min-height: 44px;
+  margin: 0 0 8px;
+}
+
+.grup-admin .pilihan {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.grup-admin .pilihan input {
+  width: 24px;
+  height: 24px;
+  margin: 0;
+}
 
 .halaman-admin {
   background: var(--kertas);
@@ -561,9 +742,6 @@ textarea {
   .kepala {
     flex-wrap: wrap;
     padding: 12px 16px;
-  }
-  .area-papan {
-    padding: 16px;
   }
 }
 

@@ -8,21 +8,60 @@
   <script src="/wall-logika.js" defer></script>
   <script src="/wall.js" defer></script>
 </head>
-<body class="halaman-wall">
+<body class="halaman-wall qr-kanan-bawah">
   <header class="kepala">
     <h1 id="judul">Wall of Gratitude</h1>
     <p id="jumlah" class="jumlah"></p>
-    <button type="button" id="layar-penuh" class="tombol-kecil">Layar penuh</button>
+    <div class="kontrol">
+      <button type="button" id="buka-pengaturan" class="tombol-kecil" aria-expanded="false" aria-controls="panel">Pengaturan</button>
+      <button type="button" id="layar-penuh" class="tombol-kecil">Layar penuh</button>
+    </div>
   </header>
+
+  <section id="panel" class="panel" role="dialog" aria-labelledby="panel-judul" hidden>
+    <h2 id="panel-judul">Pengaturan layar</h2>
+
+    <fieldset class="grup">
+      <legend>Posisi QR</legend>
+      <label class="pilihan"><input type="radio" name="qr" value="kanan-bawah"><span>Kanan bawah</span></label>
+      <label class="pilihan"><input type="radio" name="qr" value="kanan-atas"><span>Kanan atas</span></label>
+      <label class="pilihan"><input type="radio" name="qr" value="kiri-atas"><span>Kiri atas</span></label>
+      <label class="pilihan"><input type="radio" name="qr" value="kiri-bawah"><span>Kiri bawah</span></label>
+      <label class="pilihan"><input type="radio" name="qr" value="sembunyikan"><span>Sembunyikan</span></label>
+    </fieldset>
+
+    <div class="grup">
+      <label for="ukuran-qr">Ukuran QR: <output id="out-ukuran-qr" for="ukuran-qr"></output></label>
+      <input type="range" id="ukuran-qr" min="120" max="400" step="1">
+    </div>
+
+    <div class="grup">
+      <label for="jeda-refresh">Jeda auto refresh: <output id="out-jeda-refresh" for="jeda-refresh"></output></label>
+      <input type="range" id="jeda-refresh" min="3" max="30" step="1">
+    </div>
+
+    <div class="grup">
+      <label for="jeda-rotasi">Jeda rotasi halaman: <output id="out-jeda-rotasi" for="jeda-rotasi"></output></label>
+      <input type="range" id="jeda-rotasi" min="8" max="60" step="1">
+    </div>
+
+    <div class="aksi-panel">
+      <button type="button" id="kembali-bawaan" class="tombol-sekunder">Kembali ke bawaan</button>
+      <button type="button" id="tutup-panel" class="tombol-sekunder">Tutup</button>
+    </div>
+  </section>
 
   <main class="area-papan">
     <div id="papan" class="papan"></div>
-    <p id="kosong" class="kosong" hidden>Scan QR di pojok kanan bawah untuk ikut menulis ucapan.</p>
+    <p id="kosong" class="kosong" hidden>Scan QR untuk ikut menulis ucapan.</p>
   </main>
+
+  <div class="qr-wrap">
+    <img id="qr" src="/qr.svg" alt="Kode QR ke formulir ucapan" width="160" height="160">
+  </div>
 
   <footer class="kaki">
     <p id="halaman" class="halaman"></p>
-    <img src="/qr.svg" alt="Kode QR ke formulir ucapan" class="qr" width="160" height="160">
   </footer>
 </body>
 </html>

@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Moderasi ucapan</title>
   <link rel="stylesheet" href="/app.css">
+  <script src="/wall-logika.js" defer></script>
   <script src="/admin.js" defer></script>
 </head>
 <body class="halaman-admin">
@@ -26,6 +27,14 @@
         <h1 id="judul">Moderasi ucapan</h1>
         <button type="button" id="keluar" class="tombol-kecil">Keluar</button>
       </header>
+
+      <fieldset class="grup-admin">
+        <legend>Muat ulang daftar otomatis</legend>
+        <label for="jeda-admin">Jeda: <output id="out-jeda-admin" for="jeda-admin"></output></label>
+        <input type="range" id="jeda-admin" min="5" max="60" step="1">
+        <label class="pilihan"><input type="checkbox" id="mati-admin"> Mati, daftar tidak berubah sendiri</label>
+      </fieldset>
+      <button type="button" id="muat-ulang" class="tombol-sekunder" hidden>Muat ulang sekarang</button>
 
       <nav class="tabs" aria-label="Status ucapan">
         <button type="button" class="tab" data-status="pending" aria-pressed="true">Menunggu (<span id="n-pending">0</span>)</button>
