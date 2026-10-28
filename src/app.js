@@ -74,6 +74,17 @@ function buildApp({ dataDir, adminPassword, cookieSecret, eventTitle, publicUrl,
 
   app.register(cookie, { secret: cookieSecret });
   app.register(formbody);
+  // ponytail: body JSON kosong dianggap tanpa isi, karena admin.js mengirim Content-Type JSON untuk POST tanpa isi
+  app.removeContentTypeParser('application/json');
+  app.addContentTypeParser('application/json', { parseAs: 'string' }, (req, body, done) => {
+    if (body === '') return done(null, undefined);
+    try {
+      done(null, JSON.parse(body));
+    } catch (err) {
+      err.statusCode = 400;
+      done(err, undefined);
+    }
+  });
   app.register(fastifyStatic, { root: PUBLIC_DIR, prefix: '/', index: false });
 
   app.addHook('onSend', async (req, reply, payload) => {

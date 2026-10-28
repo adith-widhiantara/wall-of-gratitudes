@@ -239,3 +239,17 @@ test('healthz dan header keamanan', async () => {
   assert.equal(res.headers['x-frame-options'], 'DENY');
   await app.close();
 });
+
+test('setujui semua: POST tanpa isi tapi Content-Type JSON (seperti admin.js) tetap berhasil', async () => {
+  const app = setup();
+  const admin = await login(app);
+  await post(app, { name: 'A', message: 'Ucapan menunggu untuk disetujui', color: 'biru' }, { device: uuid() });
+  const res = await app.inject({
+    method: 'POST',
+    url: '/api/admin/approve-all',
+    cookies: { admin },
+    headers: { 'content-type': 'application/json' },
+  });
+  assert.equal(res.statusCode, 200);
+  assert.deepEqual(res.json(), { ok: true, count: 1 });
+});
