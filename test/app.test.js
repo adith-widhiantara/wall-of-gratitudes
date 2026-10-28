@@ -10,7 +10,7 @@ const Database = require('better-sqlite3');
 const { buildApp } = require('../src/app');
 const { checksum } = require('../public/wall-logika.js');
 
-function setup() {
+function setup({ ipPerJam } = {}) {
   const dataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'wog-'));
   const app = buildApp({
     dataDir,
@@ -18,6 +18,7 @@ function setup() {
     cookieSecret: 'rahasia-cookie-panjang',
     eventTitle: 'Uji',
     publicUrl: '',
+    ipPerJam,
   });
   app.wogDataDir = dataDir;
   return app;
@@ -96,8 +97,8 @@ test('dua perangkat berbeda di IP yang sama sama-sama bisa mengirim dalam 20 det
   await app.close();
 });
 
-test('tanpa cookie: tidak ada jeda 20 detik, hanya pagar IP 150 per jam', async () => {
-  const app = setup();
+test('tanpa cookie: tidak ada jeda 20 detik, hanya pagar IP per jam', async () => {
+  const app = setup({ ipPerJam: 150 });
   const payload = { message: 'Terima kasih untuk hari ini', color: 'peach' };
   for (let i = 0; i < 150; i += 1) {
     assert.equal((await post(app, payload)).statusCode, 200, `pesan ke-${i + 1}`);

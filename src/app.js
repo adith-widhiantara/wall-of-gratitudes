@@ -14,7 +14,6 @@ const STATUSES = ['pending', 'approved', 'rejected'];
 const COOLDOWN_MS = 20 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const MAX_PER_DEVICE_HOUR = 15;
-const MAX_PER_IP_HOUR = 150;
 const DEVICE_MAX_AGE_S = 3 * 24 * 60 * 60;
 const ADMIN_MAX_AGE_S = 7 * 24 * 60 * 60;
 const DEVICE_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -41,8 +40,9 @@ function tungguPerJam(rows, now, batas) {
   return Math.ceil((rows[batas - 1].created_at + HOUR_MS - now) / 1000);
 }
 
-function buildApp({ dataDir, adminPassword, cookieSecret, eventTitle, publicUrl, trustProxy = false }) {
+function buildApp({ dataDir, adminPassword, cookieSecret, eventTitle, publicUrl, trustProxy = false, ipPerJam = Number(process.env.IP_PER_JAM) || 2000 }) {
   const db = openDb(dataDir);
+  const MAX_PER_IP_HOUR = ipPerJam;
   const app = fastify({ logger: { level: 'warn' }, trustProxy, bodyLimit: 2048 });
   const secure = publicUrl.startsWith('https://');
 
