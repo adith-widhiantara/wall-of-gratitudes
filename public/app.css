@@ -696,6 +696,12 @@ textarea {
   border-color: var(--bata);
 }
 
+.tombol-sekunder.aktif {
+  color: var(--kertas);
+  background: var(--bata);
+  border-color: var(--bata);
+}
+
 .status {
   min-height: 1.5em;
   margin: 0 0 8px;

@@ -22,6 +22,11 @@
   let refreshTimer = null;
   let items = [];
   let counts = { pending: 0, approved: 0, rejected: 0 };
+  const AUTO_DURASI_MS = 5 * 60 * 1000;
+  const AUTO_JEDA_MS = 10 * 1000;
+  let autoTimer = null;
+  let autoHitung = null;
+  let autoBerakhir = 0;
 
   class SesiHabis extends Error {}
 
@@ -167,6 +172,7 @@
         t.setAttribute('aria-pressed', String(t === btn));
       });
       beriStatus('');
+      if (autoTimer !== null) hentikanAuto('Auto approve berhenti karena pindah tab.');
       muat();
     });
   });
@@ -183,6 +189,70 @@
       if (err instanceof SesiHabis) return tampilkanLogin();
       beriStatus(err.message);
     }
+  });
+
+  // Auto approve hanya hidup di memori tab ini: reload atau tutup tab langsung mematikannya.
+  const tombolAuto = document.getElementById('auto-approve');
+
+  function hentikanAuto(pesan) {
+    clearTimeout(autoTimer);
+    clearInterval(autoHitung);
+    autoTimer = null;
+    autoHitung = null;
+    tombolAuto.textContent = 'Auto approve 5 menit';
+    tombolAuto.classList.remove('aktif');
+    tombolAuto.setAttribute('aria-pressed', 'false');
+    beriStatus(pesan);
+  }
+
+  function perbaruiHitungAuto() {
+    const sisa = autoBerakhir - Date.now();
+    if (sisa <= 0) return hentikanAuto('Auto approve sudah mati: waktu 5 menit habis.');
+    const detik = Math.ceil(sisa / 1000);
+    const menit = Math.floor(detik / 60);
+    tombolAuto.textContent = `Auto approve aktif - berhenti dalam ${menit}:${String(detik % 60).padStart(2, '0')}`;
+  }
+
+  async function putaranAuto() {
+    try {
+      const data = await api('/api/admin/approve-all', { method: 'POST' });
+      if (autoTimer === null) return;
+      if (data.count > 0) {
+        beriStatus(`Auto approve: ${data.count} ucapan disetujui.`);
+        await muat();
+      } else {
+        beriStatus('Auto approve aktif. Belum ada ucapan baru.');
+      }
+    } catch (err) {
+      if (autoTimer === null) return;
+      if (err instanceof SesiHabis) {
+        hentikanAuto('Auto approve sudah mati: sesi admin habis. Masuk lagi.');
+        return tampilkanLogin();
+      }
+      beriStatus(`Peringatan: auto approve gagal (${err.message}). Dicoba lagi dalam 10 detik.`);
+    }
+    if (autoTimer === null) return;
+    autoTimer = setTimeout(putaranAuto, AUTO_JEDA_MS);
+  }
+
+  function mulaiAuto() {
+    autoBerakhir = Date.now() + AUTO_DURASI_MS;
+    tombolAuto.classList.add('aktif');
+    tombolAuto.setAttribute('aria-pressed', 'true');
+    autoHitung = setInterval(perbaruiHitungAuto, 1000);
+    perbaruiHitungAuto();
+    beriStatus('Auto approve aktif: ucapan menunggu disetujui tiap 10 detik.');
+    autoTimer = setTimeout(putaranAuto, 0);
+  }
+
+  tombolAuto.addEventListener('click', () => {
+    if (autoTimer === null) return mulaiAuto();
+    hentikanAuto('Auto approve dihentikan manual. Auto approve sekarang mati.');
+  });
+
+  // Pindah tab browser juga menghentikan auto approve, supaya tidak berjalan tanpa tombol.
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden && autoTimer !== null) hentikanAuto('Auto approve berhenti karena pindah tab.');
   });
 
   document.getElementById('keluar').addEventListener('click', async () => {
